@@ -1,11 +1,13 @@
 import hashlib
+import json
 import re
 
 import fitz
 import pytest
 
 from app.main import app
-from app.services.document_store import document_store
+from app.services.ai_service import get_answerer
+from app.services.document_store import ScoredChunk, document_store
 from app.services.embeddings import get_embedder, normalize
 
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
@@ -33,6 +35,24 @@ class FakeEmbedder:
         return self._vector(text)
 
 
+class FakeAnswerer:
+    """Answerer sem rede: devolve uma resposta pré-definida e registra as chamadas."""
+
+    def __init__(self, response: str | Exception | None = None) -> None:
+        self.response = response
+        self.calls: list[tuple[str, list[ScoredChunk]]] = []
+
+    def generate(self, question: str, chunks: list[ScoredChunk]) -> str:
+        self.calls.append((question, chunks))
+        if isinstance(self.response, Exception):
+            raise self.response
+        if self.response is not None:
+            return self.response
+        return json.dumps(
+            {"found": True, "answer": f"Segundo o documento: {chunks[0].text} [1]", "citations": [1]}
+        )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "integration: chama o Gemini real (requer chave)")
 
@@ -50,6 +70,14 @@ def fake_embedder():
     app.dependency_overrides[get_embedder] = lambda: embedder
     yield embedder
     app.dependency_overrides.pop(get_embedder, None)
+
+
+@pytest.fixture(autouse=True)
+def fake_answerer():
+    answerer = FakeAnswerer()
+    app.dependency_overrides[get_answerer] = lambda: answerer
+    yield answerer
+    app.dependency_overrides.pop(get_answerer, None)
 
 
 @pytest.fixture

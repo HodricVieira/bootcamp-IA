@@ -18,12 +18,15 @@ class QuestionRequest(BaseModel):
 
 
 class SourceExcerpt(BaseModel):
+    ref: int
     page: int
     text: str
+    score: float
 
 
 class QuestionResponse(BaseModel):
     document_id: str
     question: str
+    found: bool
     answer: str
     sources: list[SourceExcerpt]

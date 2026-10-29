@@ -11,7 +11,7 @@ from app.schemas.document import (
     QuestionResponse,
     SourceExcerpt,
 )
-from app.services.ai_service import generate_answer
+from app.services.ai_service import AIServiceError, Answerer, answer_question, get_answerer
 from app.services.document_search import split_into_chunks
 from app.services.document_store import StoredChunk, document_store
 from app.services.embeddings import Embedder, EmbeddingError, get_embedder
@@ -98,7 +98,10 @@ def get_document(document_id: str) -> DocumentMetadata:
 
 @router.post("/{document_id}/ask", response_model=QuestionResponse)
 def ask_document(
-    document_id: str, request: QuestionRequest, embedder: Embedder = Depends(get_embedder)
+    document_id: str,
+    request: QuestionRequest,
+    embedder: Embedder = Depends(get_embedder),
+    answerer: Answerer = Depends(get_answerer),
 ) -> QuestionResponse:
     document = document_store.get(_parse_id(document_id))
     if document is None:
@@ -117,11 +120,20 @@ def ask_document(
         limit=settings.max_search_results,
         min_similarity=settings.min_similarity,
     )
+    try:
+        result = answer_question(question, chunks, answerer)
+    except AIServiceError as exc:
+        logger.warning("Falha ao gerar a resposta: %s", exc)
+        raise HTTPException(status_code=502, detail=AI_UNAVAILABLE) from exc
     return QuestionResponse(
         document_id=str(document.document_id),
         question=question,
-        answer=generate_answer(question, chunks),
-        sources=[SourceExcerpt(page=chunk.page, text=chunk.text) for chunk in chunks],
+        found=result.found,
+        answer=result.answer,
+        sources=[
+            SourceExcerpt(ref=item.ref, page=item.page, text=item.text, score=item.score)
+            for item in result.citations
+        ],
     )
 
 
