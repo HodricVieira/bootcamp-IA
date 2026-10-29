@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Envie um documento PDF e faça perguntas sobre o conteúdo."
+    />
+    <title>DocuMind — converse com seu documento</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="DocuMind, página inicial">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z" />
+            <path d="M14 4v4h4M8.5 12h7M8.5 15.5h7" />
+          </svg>
+        </span>
+        <span>documind</span>
+      </a>
+      <span class="topbar-note"><span class="status-dot"></span> Seu espaço de leitura</span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span></span> LEITURA INTELIGENTE DE DOCUMENTOS</div>
+        <h1 id="page-title">Seu documento.<br /><span>Suas perguntas.</span></h1>
+        <p class="intro-copy">
+          Envie um PDF e encontre as informações que importam, sem precisar
+          percorrer página por página.
+        </p>
+      </section>
+
+      <section class="workspace" aria-label="Consultar um documento">
+        <div class="step-heading">
+          <span class="step-number">01</span>
+          <div>
+            <h2>Adicione seu documento</h2>
+            <p>Comece com um arquivo PDF pesquisável.</p>
+          </div>
+        </div>
+
+        <label class="upload-area" id="upload-area" for="document-file">
+          <input
+            id="document-file"
+            name="file"
+            type="file"
+            accept=".pdf,application/pdf"
+            aria-describedby="upload-help"
+          />
+          <span class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 15V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+            </svg>
+          </span>
+          <span class="upload-copy">
+            <strong id="file-name">Arraste seu PDF até aqui</strong>
+            <span id="upload-help">ou <span class="browse-link">escolha um arquivo</span></span>
+          </span>
+          <span class="file-limit">PDF · até 10 MB</span>
+        </label>
+
+        <div class="step-heading question-heading">
+          <span class="step-number">02</span>
+          <div>
+            <h2>O que você quer saber?</h2>
+            <p>Escreva uma pergunta sobre o conteúdo do documento.</p>
+          </div>
+        </div>
+
+        <form id="question-form">
+          <label class="visually-hidden" for="question">Sua pergunta</label>
+          <textarea
+            id="question"
+            name="question"
+            rows="3"
+            maxlength="2000"
+            placeholder="Ex.: Quais são os principais prazos mencionados?"
+            required
+          ></textarea>
+          <div class="form-footer">
+            <span class="hint">Seja específico para encontrar trechos mais relevantes.</span>
+            <button id="submit-button" type="submit">
+              <span id="button-label">Consultar documento</span>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 12h14m-6-6 6 6-6 6" />
+              </svg>
+            </button>
+          </div>
+        </form>
+
+        <div id="status-message" class="status-message" role="status" aria-live="polite" hidden></div>
+      </section>
+
+      <section id="answer-section" class="answer-section" aria-labelledby="answer-title" hidden>
+        <div class="answer-header">
+          <div>
+            <div class="eyebrow answer-eyebrow"><span></span> RESULTADO DA CONSULTA</div>
+            <h2 id="answer-title">Resposta</h2>
+          </div>
+          <span id="document-badge" class="document-badge"></span>
+        </div>
+        <p id="answer-text" class="answer-text"></p>
+        <div id="sources-section" class="sources-section" hidden>
+          <h3>Trechos encontrados <span id="source-count"></span></h3>
+          <div id="sources-list" class="sources-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span class="footer-mark" aria-hidden="true">✳</span>
+      <span>Feito para encontrar sentido no que você lê.</span>
+    </footer>
+  </body>
+</html>

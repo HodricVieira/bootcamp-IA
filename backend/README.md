@@ -15,7 +15,12 @@ cp .env.example .env
 ```
 
 Execute o servidor com `uvicorn app.main:app --reload`. A documentação Swagger fica em
-`http://127.0.0.1:8000/docs`.
+`http://127.0.0.1:8000/docs`. A página inicial fica em `http://127.0.0.1:8000/`.
+
+Na página inicial, envie um PDF pesquisável de até 10 MB, escreva uma pergunta e selecione
+**Consultar documento**. O documento é enviado uma vez; depois, é possível fazer outras
+perguntas sobre ele sem reenviar o arquivo. A API mantém os documentos em memória enquanto
+o servidor estiver em execução.
 
 ## Endpoints
 
