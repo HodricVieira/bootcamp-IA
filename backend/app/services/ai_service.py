@@ -1,7 +1,7 @@
-from app.services.document_search import TextChunk
+from app.services.document_store import ScoredChunk
 
 
-def generate_answer(question: str, chunks: list[TextChunk]) -> str:
+def generate_answer(question: str, chunks: list[ScoredChunk]) -> str:
     """Retorna uma mensagem explícita até que um provedor de IA seja configurado."""
     if not chunks:
         return "Não encontrei informações relevantes no documento para responder à pergunta."

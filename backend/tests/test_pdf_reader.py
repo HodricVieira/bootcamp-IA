@@ -1,7 +1,7 @@
 import fitz
 import pytest
 
-from app.services.pdf_reader import PDFReaderError, extract_text
+from app.services.pdf_reader import PDFReaderError, PDFTooManyPagesError, extract_text
 
 
 def test_extract_text_preserves_pages(pdf_bytes: bytes) -> None:
@@ -22,3 +22,9 @@ def test_detects_pdf_without_text() -> None:
     data = document.tobytes()
     document.close()
     assert not extract_text(data).has_text
+
+
+def test_rejects_pdf_above_max_pages(pdf_bytes: bytes) -> None:
+    with pytest.raises(PDFTooManyPagesError):
+        extract_text(pdf_bytes, max_pages=1)
+    assert extract_text(pdf_bytes, max_pages=2).pages == 2

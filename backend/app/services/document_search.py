@@ -1,10 +1,6 @@
-import re
-import unicodedata
 from dataclasses import dataclass
 
 from app.services.pdf_reader import PageText
-
-_WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
 @dataclass(frozen=True)
@@ -45,31 +41,3 @@ def split_into_chunks(
             chunks.append(TextChunk(page=page.page, text=" ".join(current)))
     return chunks
 
-
-def _normalize(value: str) -> list[str]:
-    without_accents = unicodedata.normalize("NFKD", value)
-    plain = "".join(char for char in without_accents if not unicodedata.combining(char))
-    return [word.casefold() for word in _WORD_PATTERN.findall(plain)]
-
-
-def search_chunks(
-    pages: list[PageText],
-    question: str,
-    chunk_size: int = 1000,
-    overlap: int = 150,
-    limit: int = 5,
-) -> list[TextChunk]:
-    keywords = set(_normalize(question))
-    if not keywords:
-        return []
-    effective_overlap = min(overlap, chunk_size - 1)
-    scored = [
-        (sum(keyword in set(_normalize(chunk.text)) for keyword in keywords), index, chunk)
-        for index, chunk in enumerate(
-            split_into_chunks(pages, chunk_size, effective_overlap)
-        )
-    ]
-    return [
-        chunk for score, _, chunk in sorted(scored, key=lambda item: (-item[0], item[1]))[:limit]
-        if score > 0
-    ]
