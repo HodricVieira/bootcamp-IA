@@ -7,7 +7,7 @@ import pytest
 
 from app.main import app
 from app.services.ai_service import get_answerer
-from app.services.document_store import ScoredChunk, document_store
+from app.services.document_store import MemoryDocumentStore, ScoredChunk, get_document_store
 from app.services.embeddings import get_embedder, normalize
 
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
@@ -62,10 +62,11 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clear_store():
-    document_store._documents.clear()
-    yield
-    document_store._documents.clear()
+def memory_store():
+    store = MemoryDocumentStore()
+    app.dependency_overrides[get_document_store] = lambda: store
+    yield store
+    app.dependency_overrides.pop(get_document_store, None)
 
 
 @pytest.fixture(autouse=True)

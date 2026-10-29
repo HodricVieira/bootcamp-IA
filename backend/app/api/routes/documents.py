@@ -13,7 +13,7 @@ from app.schemas.document import (
 )
 from app.services.ai_service import AIServiceError, Answerer, answer_question, get_answerer
 from app.services.document_search import split_into_chunks
-from app.services.document_store import StoredChunk, document_store
+from app.services.document_store import DocumentStore, StoredChunk, get_document_store
 from app.services.embeddings import Embedder, EmbeddingError, get_embedder
 from app.services.pdf_reader import PDFReaderError, PDFTooManyPagesError, extract_text
 
@@ -32,7 +32,9 @@ def _parse_id(document_id: str) -> UUID:
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
-    file: UploadFile = File(...), embedder: Embedder = Depends(get_embedder)
+    file: UploadFile = File(...),
+    embedder: Embedder = Depends(get_embedder),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> DocumentUploadResponse:
     if not file.filename:
         raise HTTPException(status_code=400, detail="Arquivo não informado.")
@@ -72,6 +74,7 @@ async def upload_document(
             StoredChunk(page=chunk.page, chunk_index=index, text=chunk.text, embedding=embedding)
             for index, (chunk, embedding) in enumerate(zip(text_chunks, embeddings))
         ],
+        content=bytes(content),
     )
     return DocumentUploadResponse(
         document_id=str(document.document_id),
@@ -83,7 +86,9 @@ async def upload_document(
 
 
 @router.get("/{document_id}", response_model=DocumentMetadata)
-def get_document(document_id: str) -> DocumentMetadata:
+def get_document(
+    document_id: str, document_store: DocumentStore = Depends(get_document_store)
+) -> DocumentMetadata:
     document = document_store.get(_parse_id(document_id))
     if document is None:
         raise HTTPException(status_code=404, detail="Documento não encontrado.")
@@ -102,6 +107,7 @@ def ask_document(
     request: QuestionRequest,
     embedder: Embedder = Depends(get_embedder),
     answerer: Answerer = Depends(get_answerer),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> QuestionResponse:
     document = document_store.get(_parse_id(document_id))
     if document is None:
@@ -140,6 +146,8 @@ def ask_document(
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(document_id: str) -> None:
+def delete_document(
+    document_id: str, document_store: DocumentStore = Depends(get_document_store)
+) -> None:
     if not document_store.delete(_parse_id(document_id)):
         raise HTTPException(status_code=404, detail="Documento não encontrado.")

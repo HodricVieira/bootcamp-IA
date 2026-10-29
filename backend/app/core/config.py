@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +15,11 @@ class Settings(BaseSettings):
     gemini_chat_model: str = "gemini-3.6-flash"
     gemini_embed_model: str = "gemini-embedding-001"
     embed_dim: int = 768
+
+    storage_backend: Literal["memory", "supabase"] = "memory"
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_bucket: str = "documents"
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="DOCUMIND_")
 
