@@ -31,7 +31,7 @@ def _parse_id(document_id: str) -> UUID:
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_document(
+def upload_document(
     file: UploadFile = File(...),
     embedder: Embedder = Depends(get_embedder),
     document_store: DocumentStore = Depends(get_document_store),
@@ -40,7 +40,7 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Arquivo não informado.")
     content = bytearray()
     while True:
-        chunk = await file.read(1024 * 1024)
+        chunk = file.file.read(1024 * 1024)
         if not chunk:
             break
         content.extend(chunk)

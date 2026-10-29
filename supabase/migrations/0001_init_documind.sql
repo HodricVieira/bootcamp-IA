@@ -21,8 +21,9 @@ create table if not exists public.chunks (
     embedding extensions.vector(768) not null
 );
 
-create index if not exists chunks_embedding_hnsw_idx
-    on public.chunks using hnsw (embedding extensions.vector_cosine_ops);
+-- Sem índice HNSW: com o filtro por document_id, o HNSW pode devolver zero
+-- trechos quando houver muitos documentos. A busca exata por documento é
+-- rápida para centenas de trechos.
 
 create index if not exists chunks_document_id_idx on public.chunks (document_id);
 
