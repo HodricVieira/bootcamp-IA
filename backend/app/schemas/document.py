@@ -21,6 +21,7 @@ class SourceExcerpt(BaseModel):
     ref: int
     page: int
     text: str
+    quote: str
     score: float
 
 

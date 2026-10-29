@@ -41,10 +41,13 @@ As rotas ficam em `app/api/routes/documents.py`.
 ```json
 {"document_id": "...", "question": "...", "found": true,
  "answer": "O prazo é 15 de fevereiro [1].",
- "sources": [{"ref": 1, "page": 1, "text": "...", "score": 0.82}]}
+ "sources": [{"ref": 1, "page": 1, "text": "...",
+              "quote": "O prazo para matrícula é 15 de fevereiro", "score": 0.82}]}
 ```
 
   Quando `found` for `false`, `answer` é a mensagem fixa e `sources` vem vazio.
+  `sources` traz só os trechos citados. `text` é o trecho completo; `quote` é a frase literal e curta (até ~200 caracteres) que sustenta a resposta, conferida no backend contra o `text` sem diferenciar maiúsculas e espaços. Se o modelo inventar a frase, `quote` vem vazio.
+  O Gemini responde com o schema `{found: bool, answer: str, citations: [{ref: int, quote: str}]}`.
 - `DELETE /documents/{id}`: devolve 204.
 
 Erros:

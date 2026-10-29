@@ -29,7 +29,11 @@ CHUNKS = [
 ]
 
 
-def model_json(found: bool, answer: str, citations: list[int]) -> str:
+def cite(ref: int, quote: str = "") -> dict:
+    return {"ref": ref, "quote": quote}
+
+
+def model_json(found: bool, answer: str, citations: list[dict]) -> str:
     return json.dumps({"found": found, "answer": answer, "citations": citations})
 
 
@@ -48,7 +52,9 @@ def test_user_message_numbers_excerpts_with_page() -> None:
 
 
 def test_answer_with_source(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> None:
-    fake_answerer.response = model_json(True, "O prazo é 15 de fevereiro [1].", [1])
+    fake_answerer.response = model_json(
+        True, "O prazo é 15 de fevereiro [1].", [cite(1, "prazo para matrícula é 15 de fevereiro")]
+    )
     document_id = upload(pdf_bytes)
     response = client.post(
         f"/documents/{document_id}/ask", json={"question": "Qual o prazo para matrícula?"}
@@ -60,15 +66,16 @@ def test_answer_with_source(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> No
     assert body["answer"] == "O prazo é 15 de fevereiro [1]."
     assert len(body["sources"]) == 1
     source = body["sources"][0]
-    assert set(source) == {"ref", "page", "text", "score"}
+    assert set(source) == {"ref", "page", "text", "quote", "score"}
     assert source["ref"] == 1
     assert source["page"] == 1
     assert "15 de fevereiro" in source["text"]
+    assert source["quote"] == "prazo para matrícula é 15 de fevereiro"
     assert 0 < source["score"] <= 1
 
 
 def test_sources_only_include_cited_excerpts() -> None:
-    answerer = FakeAnswerer(model_json(True, "Veja os documentos [2].", [2]))
+    answerer = FakeAnswerer(model_json(True, "Veja os documentos [2].", [cite(2)]))
     result = answer_question("Quais documentos?", CHUNKS, answerer)
     assert result.found is True
     assert [(item.ref, item.page) for item in result.citations] == [(2, 2)]
@@ -95,7 +102,8 @@ def test_model_says_not_found() -> None:
         "isto não é JSON",
         "",
         '{"found": true, "answer": "Sem lista"}',
-        '{"found": "sim", "answer": "Tipo errado [1]", "citations": [1]}',
+        '{"found": "sim", "answer": "Tipo errado [1]", "citations": [{"ref": 1, "quote": ""}]}',
+        '{"found": true, "answer": "Formato antigo [1]", "citations": [1]}',
     ],
 )
 def test_invalid_json_returns_not_found(raw: str) -> None:
@@ -103,9 +111,9 @@ def test_invalid_json_returns_not_found(raw: str) -> None:
     assert (result.found, result.answer, result.citations) == (False, NOT_FOUND_MESSAGE, [])
 
 
-@pytest.mark.parametrize("citations", [[3], [0], [1, 5], [-1]])
-def test_citation_out_of_range_returns_not_found(citations: list[int]) -> None:
-    answerer = FakeAnswerer(model_json(True, "Resposta [3].", citations))
+@pytest.mark.parametrize("refs", [[3], [0], [1, 5], [-1]])
+def test_citation_out_of_range_returns_not_found(refs: list[int]) -> None:
+    answerer = FakeAnswerer(model_json(True, "Resposta [3].", [cite(ref) for ref in refs]))
     result = answer_question("Qual o prazo?", CHUNKS, answerer)
     assert (result.found, result.answer, result.citations) == (False, NOT_FOUND_MESSAGE, [])
 
@@ -114,6 +122,32 @@ def test_found_without_citations_returns_not_found() -> None:
     result = answer_question("Qual o prazo?", CHUNKS, FakeAnswerer(model_json(True, "15/02.", [])))
     assert result.found is False
     assert result.answer == NOT_FOUND_MESSAGE
+
+
+def test_valid_quote_ignores_case_and_spaces() -> None:
+    quote = "O  PRAZO para\nmatrícula é 15 de fevereiro"
+    answerer = FakeAnswerer(model_json(True, "O prazo é 15 de fevereiro [1].", [cite(1, quote)]))
+    result = answer_question("Qual o prazo?", CHUNKS, answerer)
+    assert result.found is True
+    assert result.citations[0].quote == "O PRAZO para matrícula é 15 de fevereiro"
+    assert result.citations[0].text == CHUNKS[0].text
+
+
+def test_invented_quote_becomes_empty() -> None:
+    answerer = FakeAnswerer(
+        model_json(
+            True,
+            "O prazo é 15 de fevereiro [1] e há documentos [2].",
+            [cite(1, "O prazo é 20 de março."), cite(2, "Documentos necessários")],
+        )
+    )
+    result = answer_question("Qual o prazo?", CHUNKS, answerer)
+    assert result.found is True
+    assert [(item.ref, item.quote) for item in result.citations] == [
+        (1, ""),
+        (2, "Documentos necessários"),
+    ]
+    assert result.citations[0].text == CHUNKS[0].text
 
 
 def test_gemini_error_returns_502(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> None:
@@ -131,17 +165,21 @@ def test_gemini_answerer_config_and_errors() -> None:
 
     def generate_content(*, model, contents, config):
         calls.append({"model": model, "contents": contents, "config": config})
-        return SimpleNamespace(text=model_json(True, "O prazo é 15 de fevereiro [1].", [1]))
+        return SimpleNamespace(
+            text=model_json(True, "O prazo é 15 de fevereiro [1].", [cite(1, "15 de fevereiro")])
+        )
 
     fake_client = SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
     raw = GeminiAnswerer("chave", "modelo", client=fake_client).generate("Qual o prazo?", CHUNKS)
-    assert json.loads(raw)["citations"] == [1]
+    assert json.loads(raw)["citations"] == [cite(1, "15 de fevereiro")]
     config = calls[0]["config"]
     assert calls[0]["model"] == "modelo"
     assert config.temperature == 0.1
     assert config.response_mime_type == "application/json"
     assert config.system_instruction == SYSTEM_PROMPT
     assert set(config.response_schema.model_fields) == {"found", "answer", "citations"}
+    citation_schema = config.response_schema.model_fields["citations"].annotation.__args__[0]
+    assert set(citation_schema.model_fields) == {"ref", "quote"}
 
     def failing(**_):
         raise RuntimeError("rede")
@@ -186,3 +224,4 @@ def test_paraphrased_question_against_real_gemini() -> None:
     assert "15" in body["answer"]
     assert body["sources"]
     assert all(source["page"] == 1 for source in body["sources"])
+    assert any("15 de fevereiro" in source["quote"] for source in body["sources"])

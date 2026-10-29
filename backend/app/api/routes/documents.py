@@ -131,7 +131,9 @@ def ask_document(
         found=result.found,
         answer=result.answer,
         sources=[
-            SourceExcerpt(ref=item.ref, page=item.page, text=item.text, score=item.score)
+            SourceExcerpt(
+                ref=item.ref, page=item.page, text=item.text, quote=item.quote, score=item.score
+            )
             for item in result.citations
         ],
     )

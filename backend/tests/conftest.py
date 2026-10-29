@@ -49,7 +49,11 @@ class FakeAnswerer:
         if self.response is not None:
             return self.response
         return json.dumps(
-            {"found": True, "answer": f"Segundo o documento: {chunks[0].text} [1]", "citations": [1]}
+            {
+                "found": True,
+                "answer": f"Segundo o documento: {chunks[0].text} [1]",
+                "citations": [{"ref": 1, "quote": chunks[0].text[:200]}],
+            }
         )
 
 
