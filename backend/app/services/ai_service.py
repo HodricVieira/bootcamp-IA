@@ -105,8 +105,13 @@ def parse_model_answer(raw: str, chunks: list[ScoredChunk]) -> AnswerResult:
         return NOT_FOUND
     quotes: dict[int, str] = {}
     for citation in parsed.citations:
-        if not quotes.get(citation.ref):
-            quotes[citation.ref] = verified_quote(citation.quote, chunks[citation.ref - 1].text)
+        verified = verified_quote(citation.quote, chunks[citation.ref - 1].text)
+        if verified and not quotes.get(citation.ref):
+            quotes[citation.ref] = verified
+    refs = [ref for ref in refs if ref in quotes]
+    if not refs:
+        logger.warning("O modelo não devolveu citações verificáveis.")
+        return NOT_FOUND
     return AnswerResult(
         found=True,
         answer=answer,

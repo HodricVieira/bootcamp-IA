@@ -75,7 +75,9 @@ def test_answer_with_source(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> No
 
 
 def test_sources_only_include_cited_excerpts() -> None:
-    answerer = FakeAnswerer(model_json(True, "Veja os documentos [2].", [cite(2)]))
+    answerer = FakeAnswerer(
+        model_json(True, "Veja os documentos [2].", [cite(2, "Documentos necessários")])
+    )
     result = answer_question("Quais documentos?", CHUNKS, answerer)
     assert result.found is True
     assert [(item.ref, item.page) for item in result.citations] == [(2, 2)]
@@ -133,7 +135,7 @@ def test_valid_quote_ignores_case_and_spaces() -> None:
     assert result.citations[0].text == CHUNKS[0].text
 
 
-def test_invented_quote_becomes_empty() -> None:
+def test_invented_quote_is_rejected_but_valid_sources_remain() -> None:
     answerer = FakeAnswerer(
         model_json(
             True,
@@ -143,11 +145,8 @@ def test_invented_quote_becomes_empty() -> None:
     )
     result = answer_question("Qual o prazo?", CHUNKS, answerer)
     assert result.found is True
-    assert [(item.ref, item.quote) for item in result.citations] == [
-        (1, ""),
-        (2, "Documentos necessários"),
-    ]
-    assert result.citations[0].text == CHUNKS[0].text
+    assert [(item.ref, item.quote) for item in result.citations] == [(2, "Documentos necessários")]
+    assert result.citations[0].text == CHUNKS[1].text
 
 
 def test_gemini_error_returns_502(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> None:

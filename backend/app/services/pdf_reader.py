@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+import re
+import unicodedata
+
 import fitz
 
 
@@ -9,6 +12,10 @@ class PDFReaderError(ValueError):
 
 class PDFTooManyPagesError(PDFReaderError):
     """Indica que o PDF ultrapassa o limite de páginas permitido."""
+
+
+class PDFPasswordError(PDFReaderError):
+    """Indica que o PDF exige senha para leitura."""
 
 
 @dataclass(frozen=True)
@@ -38,10 +45,12 @@ def extract_text(pdf_bytes: bytes, max_pages: int | None = None) -> ExtractionRe
         raise PDFReaderError("O arquivo não é um PDF válido.") from exc
 
     try:
+        if document.needs_pass:
+            raise PDFPasswordError("O documento PDF está protegido por senha.")
         if max_pages is not None and document.page_count > max_pages:
             raise PDFTooManyPagesError(f"O documento excede o limite de {max_pages} páginas.")
         page_texts = [
-            PageText(page=number, text=page.get_text("text").strip())
+            PageText(page=number, text=_normalize_text(page.get_text("text")))
             for number, page in enumerate(document, start=1)
         ]
         characters = sum(len(item.text) for item in page_texts)
@@ -56,3 +65,13 @@ def extract_text(pdf_bytes: bytes, max_pages: int | None = None) -> ExtractionRe
         raise PDFReaderError("Não foi possível extrair o texto do PDF.") from exc
     finally:
         document.close()
+
+
+_CONTROL_OR_WHITESPACE = re.compile(r"\s+", re.UNICODE)
+
+
+def _normalize_text(text: str) -> str:
+    without_controls = "".join(
+        character for character in text if not unicodedata.category(character).startswith("C")
+    )
+    return _CONTROL_OR_WHITESPACE.sub(" ", without_controls).strip()

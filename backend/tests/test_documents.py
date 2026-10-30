@@ -71,7 +71,7 @@ def test_invalid_upload_and_empty_pdf(pdf_bytes: bytes) -> None:
     assert client.post(
         "/documents/upload",
         files={"file": ("imagem.pdf", empty_pdf, "application/pdf")},
-    ).status_code == 400
+    ).status_code == 422
 
 
 def test_rejects_non_pdf_signature() -> None:
@@ -79,7 +79,27 @@ def test_rejects_non_pdf_signature() -> None:
         "/documents/upload",
         files={"file": ("arquivo.pdf", b"texto qualquer", "application/pdf")},
     )
-    assert response.status_code == 415
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_PDF"
+
+
+def test_upload_size_limit_accepts_exact_limit_and_rejects_one_byte_over(
+    pdf_bytes: bytes, monkeypatch, memory_store
+) -> None:
+    monkeypatch.setattr("app.api.routes.documents.settings.max_file_size", len(pdf_bytes))
+    accepted = client.post(
+        "/documents/upload",
+        files={"file": ("limite.pdf", pdf_bytes, "application/pdf")},
+    )
+    assert accepted.status_code == 201
+
+    rejected = client.post(
+        "/documents/upload",
+        files={"file": ("acima.pdf", pdf_bytes + b"x", "application/pdf")},
+    )
+    assert rejected.status_code == 413
+    assert rejected.json()["detail"]["code"] == "FILE_TOO_LARGE"
+    assert len(memory_store._documents) == 1
 
 
 def test_rejects_pdf_above_page_limit() -> None:

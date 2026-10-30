@@ -28,6 +28,10 @@ function getErrorMessage(payload, fallback) {
     return payload.detail;
   }
 
+  if (payload?.detail && typeof payload.detail.message === "string") {
+    return payload.detail.message;
+  }
+
   if (Array.isArray(payload?.detail)) {
     return payload.detail.map((error) => error.msg).join(" ");
   }
@@ -56,7 +60,7 @@ function validateFile(file) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error("O arquivo excede o limite de 10 MB.");
+    throw new Error("O arquivo excede o limite máximo permitido de 10 MiB.");
   }
 }
 
