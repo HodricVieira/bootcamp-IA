@@ -131,8 +131,16 @@ def test_valid_quote_ignores_case_and_spaces() -> None:
     answerer = FakeAnswerer(model_json(True, "O prazo é 15 de fevereiro [1].", [cite(1, quote)]))
     result = answer_question("Qual o prazo?", CHUNKS, answerer)
     assert result.found is True
-    assert result.citations[0].quote == "O PRAZO para matrícula é 15 de fevereiro"
+    assert result.citations[0].quote == "O prazo para matrícula é 15 de fevereiro"
     assert result.citations[0].text == CHUNKS[0].text
+
+
+def test_quote_uses_original_chunk_text() -> None:
+    chunks = [ScoredChunk(page=3, chunk_index=0, text="O recurso deve ser feito em 7 dias\ncorridos.", score=0.8)]
+    answerer = FakeAnswerer(model_json(True, "São 7 dias corridos [1].", [cite(1, "7 diascorridos")]))
+    result = answer_question("Qual o prazo do recurso?", chunks, answerer)
+    assert result.found is True
+    assert result.citations[0].quote == "7 dias corridos"
 
 
 def test_invented_quote_is_rejected_but_valid_sources_remain() -> None:

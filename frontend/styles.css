@@ -524,7 +524,15 @@ button svg {
   padding-top: 14px;
 }
 
-.citation-ref,
+.citation-ref {
+  margin-left: 1px;
+  color: var(--green);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 0;
+  cursor: help;
+}
+
 .source-ref {
   display: inline-grid;
   min-width: 17px;
@@ -538,10 +546,6 @@ button svg {
   font-weight: 700;
   line-height: 1;
   vertical-align: 1px;
-}
-
-.citation-ref {
-  margin: 0 2px;
 }
 
 .source-page {

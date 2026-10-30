@@ -87,11 +87,22 @@ def _comparable(text: str) -> str:
 
 
 def verified_quote(quote: str, chunk_text: str) -> str:
-    """Devolve a citação se ela estiver literalmente no trecho; senão, vazio."""
-    quote = " ".join(quote.split())
-    if quote and _comparable(quote) in _comparable(chunk_text):
-        return quote
-    return ""
+    """Devolve o recorte do trecho que corresponde à citação; vazio se ela não estiver nele."""
+    target = _comparable(quote)
+    if not target:
+        return ""
+    comparable: list[str] = []
+    positions: list[int] = []
+    for index, char in enumerate(chunk_text):
+        if not char.isspace():
+            folded = char.casefold()
+            comparable.append(folded)
+            positions.extend([index] * len(folded))
+    start = "".join(comparable).find(target)
+    if start == -1:
+        return ""
+    end = positions[start + len(target) - 1] + 1
+    return " ".join(chunk_text[positions[start]:end].split())
 
 
 def parse_model_answer(raw: str, chunks: list[ScoredChunk]) -> AnswerResult:

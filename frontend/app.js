@@ -275,17 +275,34 @@ function createSourceCard(source) {
   return card;
 }
 
-function renderAnswerText(container, answer) {
-  for (const part of answer.split(/(\[\d+\])/)) {
+function renderAnswerText(container, answer, sources) {
+  const pages = new Map(sources.map((source) => [String(source.ref), source.page]));
+  const parts = answer.split(/(\[\d+\])/);
+  const lastIndex = new Map();
+  parts.forEach((part, index) => {
     const match = part.match(/^\[(\d+)\]$/);
     if (match) {
-      const ref = createElement("span", "citation-ref", match[1]);
-      ref.title = `Fonte ${match[1]}`;
-      container.append(ref);
-    } else if (part) {
-      container.append(part);
+      lastIndex.set(match[1], index);
     }
-  }
+  });
+
+  parts.forEach((part, index) => {
+    const match = part.match(/^\[(\d+)\]$/);
+    if (!match) {
+      const text = index < parts.length - 1 ? part.trimEnd() : part;
+      if (text) {
+        container.append(text);
+      }
+      return;
+    }
+    if (lastIndex.get(match[1]) !== index) {
+      return;
+    }
+    const ref = createElement("sup", "citation-ref", match[1]);
+    const page = pages.get(match[1]);
+    ref.title = page === undefined ? `Fonte ${match[1]}` : `Fonte ${match[1]}, página ${page}`;
+    container.append(ref);
+  });
 }
 
 function renderAnswer(answerBlock, result) {
@@ -301,7 +318,7 @@ function renderAnswer(answerBlock, result) {
     return;
   }
 
-  renderAnswerText(text, result.answer);
+  renderAnswerText(text, result.answer, result.sources);
   answerBlock.append(text);
 
   if (result.sources.length === 0) {
