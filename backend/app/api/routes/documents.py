@@ -15,6 +15,7 @@ from app.services.ai_service import AIServiceError, Answerer, answer_question, g
 from app.services.document_search import split_into_chunks
 from app.services.document_store import DocumentStore, StoredChunk, get_document_store
 from app.services.embeddings import Embedder, EmbeddingError, get_embedder
+from app.services.gemini_retry import RateLimitedError
 from app.services.pdf_reader import (
     PDFPasswordError,
     PDFReaderError,
@@ -26,11 +27,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 AI_UNAVAILABLE = "O serviço de IA não respondeu. Tente de novo."
+RATE_LIMITED_MESSAGE = "Limite de uso da IA atingido. Aguarde um minuto e tente de novo."
 MAX_FILE_SIZE_MESSAGE = "O arquivo excede o limite máximo permitido de 10 MiB."
 
 
 def _upload_error(status_code: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+
+
+def _ai_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, RateLimitedError):
+        return HTTPException(
+            status_code=429, detail={"code": "RATE_LIMITED", "message": RATE_LIMITED_MESSAGE}
+        )
+    return HTTPException(status_code=502, detail=AI_UNAVAILABLE)
 
 
 def _parse_id(document_id: str) -> UUID:
@@ -79,7 +89,7 @@ def upload_document(
         embeddings = embedder.embed_documents([chunk.text for chunk in text_chunks])
     except EmbeddingError as exc:
         logger.warning("Falha ao gerar embeddings do documento: %s", exc)
-        raise HTTPException(status_code=502, detail=AI_UNAVAILABLE) from exc
+        raise _ai_error(exc) from exc
     document = document_store.add(
         filename=file.filename,
         pages=extraction.pages,
@@ -133,7 +143,7 @@ def ask_document(
         query_embedding = embedder.embed_query(question)
     except EmbeddingError as exc:
         logger.warning("Falha ao gerar embedding da pergunta: %s", exc)
-        raise HTTPException(status_code=502, detail=AI_UNAVAILABLE) from exc
+        raise _ai_error(exc) from exc
     chunks = document_store.search(
         document.document_id,
         query_embedding,
@@ -144,7 +154,7 @@ def ask_document(
         result = answer_question(question, chunks, answerer)
     except AIServiceError as exc:
         logger.warning("Falha ao gerar a resposta: %s", exc)
-        raise HTTPException(status_code=502, detail=AI_UNAVAILABLE) from exc
+        raise _ai_error(exc) from exc
     return QuestionResponse(
         document_id=str(document.document_id),
         question=question,

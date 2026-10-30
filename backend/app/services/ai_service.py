@@ -1,5 +1,7 @@
 import logging
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Protocol
@@ -8,6 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
 from app.services.document_store import ScoredChunk
+from app.services.gemini_retry import RateLimitedError, call_with_retry, is_rate_limited
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +28,10 @@ SYSTEM_PROMPT = """Você é o DocuMind. Responda à pergunta usando EXCLUSIVAMEN
 
 class AIServiceError(RuntimeError):
     """Indica que o modelo de linguagem não respondeu."""
+
+
+class AIRateLimitError(AIServiceError, RateLimitedError):
+    """Indica que o limite de uso do Gemini foi atingido."""
 
 
 class ModelCitation(BaseModel):
@@ -135,10 +142,17 @@ def answer_question(question: str, chunks: list[ScoredChunk], answerer: Answerer
 
 
 class GeminiAnswerer:
-    def __init__(self, api_key: str, model: str, client: Any = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        client: Any = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self._api_key = api_key
         self._model = model
         self._client = client
+        self._sleep = sleep
 
     def _get_client(self) -> Any:
         if self._client is None:
@@ -160,10 +174,15 @@ class GeminiAnswerer:
             response_schema=ModelAnswer,
         )
         try:
-            response = client.models.generate_content(
-                model=self._model, contents=build_user_message(question, chunks), config=config
+            response = call_with_retry(
+                lambda: client.models.generate_content(
+                    model=self._model, contents=build_user_message(question, chunks), config=config
+                ),
+                self._sleep,
             )
         except Exception as exc:
+            if is_rate_limited(exc):
+                raise AIRateLimitError("Limite de uso do Gemini atingido.") from exc
             raise AIServiceError("Falha ao gerar a resposta no Gemini.") from exc
         return response.text or ""
 

@@ -61,9 +61,16 @@ Erros do upload vêm como `{"detail": {"code": "...", "message": "..."}}`:
 | 422 | `PASSWORD_PROTECTED` | PDF protegido por senha |
 | 422 | `NO_EXTRACTABLE_TEXT` | PDF sem camada de texto (sem OCR) |
 
+Quando o Gemini continua devolvendo 429 depois das novas tentativas, upload e pergunta respondem
+429 com `{"detail": {"code": "RATE_LIMITED", "message": "Limite de uso da IA atingido. Aguarde um minuto e tente de novo."}}`.
+
 Os demais erros ainda vêm como `{"detail": "..."}`:
 
 | HTTP | Situação |
 | --- | --- |
 | 404 | Documento inexistente |
 | 502 | Falha no Gemini, com a mensagem "O serviço de IA não respondeu. Tente de novo." |
+
+As chamadas ao Gemini (`GeminiEmbedder` e `GeminiAnswerer`) fazem até 2 novas tentativas, com espera
+de 1s e depois 2s, só para erros temporários (5xx, 429, timeout, falha de conexão). Outros 4xx, como chave inválida,
+falham na hora.
