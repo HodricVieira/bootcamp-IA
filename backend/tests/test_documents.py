@@ -56,10 +56,12 @@ def test_upload_embeds_chunks_once(pdf_bytes: bytes, fake_embedder) -> None:
 
 
 def test_invalid_upload_and_empty_pdf(pdf_bytes: bytes) -> None:
-    assert client.post(
+    empty = client.post(
         "/documents/upload",
         files={"file": ("arquivo.pdf", b"", "application/pdf")},
-    ).status_code == 400
+    )
+    assert empty.status_code == 400
+    assert empty.json()["detail"]["code"] == "EMPTY_FILE"
     assert client.post(
         "/documents/upload",
         files={"file": ("arquivo.pdf", b"%PDF-1.7 corrompido", "application/pdf")},
@@ -113,6 +115,7 @@ def test_rejects_pdf_above_page_limit() -> None:
         files={"file": ("longo.pdf", data, "application/pdf")},
     )
     assert response.status_code == 413
+    assert response.json()["detail"]["code"] == "TOO_MANY_PAGES"
 
 
 def test_embedding_failure_returns_502(pdf_bytes: bytes) -> None:

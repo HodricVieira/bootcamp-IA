@@ -74,6 +74,23 @@ def test_answer_with_source(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> No
     assert 0 < source["score"] <= 1
 
 
+def test_source_contains_text_supporting_the_answer(
+    pdf_bytes: bytes, fake_answerer: FakeAnswerer
+) -> None:
+    fake_answerer.response = model_json(
+        True, "A matrícula vai até 15 de fevereiro [1].", [cite(1, "o PRAZO para  matrícula é 15 de fevereiro")]
+    )
+    document_id = upload(pdf_bytes)
+    body = client.post(
+        f"/documents/{document_id}/ask", json={"question": "Qual o prazo para matrícula?"}
+    ).json()
+    assert body["found"] is True
+    [source] = body["sources"]
+    assert source["quote"] in source["text"]
+    assert "15 de fevereiro" in source["quote"]
+    assert "15 de fevereiro" in body["answer"]
+
+
 def test_sources_only_include_cited_excerpts() -> None:
     answerer = FakeAnswerer(
         model_json(True, "Veja os documentos [2].", [cite(2, "Documentos necessários")])
