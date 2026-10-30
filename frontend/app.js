@@ -25,8 +25,6 @@ const workspace = document.querySelector(".workspace");
 const authTitle = document.querySelector("#auth-title");
 const authSubtitle = document.querySelector("#auth-subtitle");
 const authPasswordLabel = document.querySelector("#auth-password-label");
-const authPhoneField = document.querySelector("#auth-phone-field");
-const authPhone = document.querySelector("#auth-phone");
 const authConfirmPasswordField = document.querySelector("#auth-confirm-password-field");
 const authConfirmPassword = document.querySelector("#auth-confirm-password");
 const authForm = document.querySelector("#auth-form");
@@ -164,9 +162,7 @@ function setAuthMode(mode) {
   authPasswordLabel.textContent = signingUp ? "Crie uma senha" : "Senha";
   authSubmitLabel.textContent = signingUp ? "Criar minha conta" : "Entrar no DocuMind";
   authPassword.autocomplete = signingUp ? "new-password" : "current-password";
-  authPhoneField.hidden = !signingUp;
   authConfirmPasswordField.hidden = !signingUp;
-  authPhone.required = signingUp;
   authConfirmPassword.required = signingUp;
   authMessage.hidden = true;
 }
@@ -613,7 +609,6 @@ authForm.addEventListener("submit", async (event) => {
       ? await supabaseClient.auth.signUp({
           email,
           password,
-          options: { data: { phone: authPhone.value.trim() } },
         })
       : await supabaseClient.auth.signInWithPassword({ email, password });
   authSubmit.disabled = false;
