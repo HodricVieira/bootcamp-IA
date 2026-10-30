@@ -1,1 +1,0 @@
-"""Testes do DocuMind."""
