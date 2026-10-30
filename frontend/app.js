@@ -20,6 +20,7 @@ const submitButton = document.querySelector("#submit-button");
 const buttonLabel = document.querySelector("#button-label");
 const statusMessage = document.querySelector("#status-message");
 const authPanel = document.querySelector("#auth-panel");
+const authScreen = document.querySelector(".auth-screen");
 const workspace = document.querySelector(".workspace");
 const authTitle = document.querySelector("#auth-title");
 const authSubtitle = document.querySelector("#auth-subtitle");
@@ -32,11 +33,16 @@ const authForm = document.querySelector("#auth-form");
 const authEmail = document.querySelector("#auth-email");
 const authPassword = document.querySelector("#auth-password");
 const authSubmit = document.querySelector("#auth-submit");
+const authSubmitLabel = authSubmit.querySelector("span");
 const authMessage = document.querySelector("#auth-message");
 const loginTab = document.querySelector("#login-tab");
 const signupTab = document.querySelector("#signup-tab");
 const signoutButton = document.querySelector("#signout-button");
 const accountEmail = document.querySelector("#account-email");
+const signupLink = document.querySelector("#signup-link");
+const forgotPassword = document.querySelector("#forgot-password");
+const themeToggles = document.querySelectorAll("[data-theme-toggle]");
+const themeLabels = document.querySelectorAll("[data-theme-label]");
 
 let activeDocument = null;
 let isUploading = false;
@@ -44,6 +50,28 @@ let isAsking = false;
 let authMode = "login";
 let supabaseClient = null;
 let accessToken = null;
+
+function updateThemeControls() {
+  const isDark = document.documentElement.dataset.theme === "dark";
+  themeLabels.forEach((label) => {
+    label.textContent = isDark ? "Modo claro" : "Modo escuro";
+  });
+  themeToggles.forEach((toggle) => {
+    toggle.setAttribute("aria-label", isDark ? "Ativar modo claro" : "Ativar modo escuro");
+    toggle.setAttribute("aria-pressed", String(isDark));
+  });
+}
+
+themeToggles.forEach((toggle) => {
+  toggle.addEventListener("click", () => {
+    const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem("documind-theme", nextTheme);
+    updateThemeControls();
+  });
+});
+
+updateThemeControls();
 
 class ApiError extends Error {
   constructor(message, status, code) {
@@ -125,6 +153,8 @@ function setAuthMode(mode) {
   authPanel.classList.add("auth-mode-change");
   loginTab.classList.toggle("is-active", !signingUp);
   signupTab.classList.toggle("is-active", signingUp);
+  loginTab.setAttribute("aria-selected", String(!signingUp));
+  signupTab.setAttribute("aria-selected", String(signingUp));
   authTitle.textContent = signingUp
     ? "Crie sua conta no DocuMind"
     : "Entre para consultar seus documentos";
@@ -132,7 +162,7 @@ function setAuthMode(mode) {
     ? "Cadastre-se para salvar seus documentos com segurança."
     : "Acesse sua conta para continuar.";
   authPasswordLabel.textContent = signingUp ? "Crie uma senha" : "Senha";
-  authSubmit.textContent = signingUp ? "Criar minha conta" : "Entrar";
+  authSubmitLabel.textContent = signingUp ? "Criar minha conta" : "Entrar no DocuMind";
   authPassword.autocomplete = signingUp ? "new-password" : "current-password";
   authPhoneField.hidden = !signingUp;
   authConfirmPasswordField.hidden = !signingUp;
@@ -142,8 +172,9 @@ function setAuthMode(mode) {
 }
 
 function showAuthenticated(user) {
-  authPanel.hidden = true;
+  authScreen.hidden = true;
   workspace.hidden = false;
+  document.body.classList.add("is-authenticated");
   accountEmail.textContent = user.email || "Conta autenticada";
   updateControls();
 }
@@ -152,7 +183,9 @@ function showUnauthenticated() {
   accessToken = null;
   activeDocument = null;
   authPanel.hidden = false;
+  authScreen.hidden = false;
   workspace.hidden = true;
+  document.body.classList.remove("is-authenticated");
   resetUploadArea();
   chatHistory.replaceChildren();
   chatHistory.hidden = true;
@@ -542,6 +575,22 @@ newChatButton.addEventListener("click", async () => {
 
 loginTab.addEventListener("click", () => setAuthMode("login"));
 signupTab.addEventListener("click", () => setAuthMode("signup"));
+signupLink.addEventListener("click", () => setAuthMode("signup"));
+
+document.querySelectorAll("[data-password-toggle]").forEach((toggle) => {
+  toggle.addEventListener("click", () => {
+    const field = document.querySelector(`#${toggle.dataset.passwordToggle}`);
+    const isVisible = field.type === "password";
+    field.type = isVisible ? "text" : "password";
+    toggle.setAttribute("aria-pressed", String(isVisible));
+    toggle.setAttribute("aria-label", isVisible ? "Ocultar senha" : "Mostrar senha");
+    toggle.classList.toggle("is-visible", isVisible);
+  });
+});
+
+forgotPassword.addEventListener("click", () => {
+  showAuthMessage("A recuperação de senha será disponibilizada na próxima etapa.", false);
+});
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();

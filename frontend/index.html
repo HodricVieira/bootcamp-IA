@@ -8,12 +8,15 @@
       content="Envie um documento PDF e faça perguntas sobre o conteúdo."
     />
     <title>DocuMind — converse com seu documento</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("documind-theme");
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+        document.documentElement.dataset.theme = savedTheme || systemTheme;
+      })();
+    </script>
     <link rel="stylesheet" href="/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/app.js" defer></script>
@@ -30,41 +33,114 @@
         <span>documind</span>
       </a>
       <span class="topbar-note"><span class="status-dot"></span> Seu espaço de leitura</span>
+      <button class="theme-toggle theme-toggle--light" type="button" data-theme-toggle>
+        <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3.5" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+        </svg>
+        <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" />
+        </svg>
+        <span data-theme-label>Modo escuro</span>
+      </button>
     </header>
 
     <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div class="eyebrow"><span></span> LEITURA INTELIGENTE DE DOCUMENTOS</div>
-        <h1 id="page-title">Seu documento.<br /><span>Suas perguntas.</span></h1>
-        <p class="intro-copy">
-          Envie um PDF e encontre as informações que importam, sem precisar
-          percorrer página por página.
-        </p>
-      </section>
+      <section class="auth-screen" aria-label="Acesso ao DocuMind">
+        <section class="brand-panel" aria-labelledby="brand-title">
+          <div class="brand-panel__top">
+            <a class="brand brand-panel__brand" href="/" aria-label="DocuMind, página inicial">
+              <span class="brand__mark" aria-hidden="true">
+                <svg viewBox="0 0 32 32"><path d="M8 3.75h10.5L25 10.2v18.05H8a2 2 0 0 1-2-2v-20.5a2 2 0 0 1 2-2Z" /><path d="M18 3.75v6.5h7M10.5 16h10M10.5 20h7" /></svg>
+              </span>
+              <span>DocuMind</span>
+            </a>
+            <div class="brand-panel__actions">
+              <span class="brand-panel__eyebrow">Workspace inteligente</span>
+              <button class="theme-toggle theme-toggle--dark" type="button" data-theme-toggle>
+                <svg class="theme-toggle__sun" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3.5" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42" />
+                </svg>
+                <svg class="theme-toggle__moon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" />
+                </svg>
+                <span data-theme-label>Modo escuro</span>
+              </button>
+            </div>
+          </div>
+          <div class="brand-panel__content">
+            <div class="orbital-art" aria-hidden="true">
+              <div class="orbital-art__halo"></div>
+              <div class="orbital-art__document">
+                <span class="orbital-art__document-fold"></span>
+                <span class="orbital-art__line orbital-art__line--long"></span>
+                <span class="orbital-art__line"></span>
+                <span class="orbital-art__line orbital-art__line--short"></span>
+                <span class="orbital-art__spark"></span>
+              </div>
+              <span class="orbital-art__dot orbital-art__dot--one"></span>
+              <span class="orbital-art__dot orbital-art__dot--two"></span>
+              <span class="orbital-art__dot orbital-art__dot--three"></span>
+            </div>
+            <p class="brand-panel__kicker">Leia menos. Entenda mais.</p>
+            <h1 id="brand-title">Suas respostas,<br /><em>documentadas.</em></h1>
+            <p class="brand-panel__description">Organize PDFs, encontre informações importantes e converse com seus documentos em um só lugar.</p>
+          </div>
+          <div class="brand-panel__footer"><span class="status-dot" aria-hidden="true"></span><span>Privacidade e clareza em cada resposta</span></div>
+        </section>
 
-      <section id="auth-panel" class="auth-panel" aria-labelledby="auth-title">
-        <h2 id="auth-title">Entre para consultar seus documentos</h2>
-        <p id="auth-subtitle" class="auth-subtitle">Acesse sua conta para continuar.</p>
-        <div class="auth-tabs">
-          <button id="login-tab" type="button" class="auth-tab is-active">Entrar</button>
-          <button id="signup-tab" type="button" class="auth-tab">Criar conta</button>
-        </div>
-        <form id="auth-form">
-          <div id="auth-phone-field" class="auth-field" hidden>
-            <label for="auth-phone">Telefone</label>
-            <input id="auth-phone" type="tel" autocomplete="tel" placeholder="+55 (11) 99999-9999" />
+        <section id="auth-panel" class="auth-panel" aria-labelledby="auth-title">
+          <div class="auth-panel__header">
+            <div class="auth-tabs" role="tablist" aria-label="Escolha uma ação">
+              <button id="login-tab" type="button" class="auth-tab is-active" role="tab" aria-selected="true">Entrar</button>
+              <button id="signup-tab" type="button" class="auth-tab" role="tab" aria-selected="false">Criar conta</button>
+            </div>
+            <span class="secure-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10V7.75a4.5 4.5 0 0 1 9 0V10M6 10h12v10H6V10Z" /></svg> Ambiente seguro</span>
           </div>
-          <label id="auth-email-label" for="auth-email">E-mail</label>
-          <input id="auth-email" type="email" autocomplete="email" required />
-          <label id="auth-password-label" for="auth-password">Senha</label>
-          <input id="auth-password" type="password" minlength="6" autocomplete="current-password" required />
-          <div id="auth-confirm-password-field" class="auth-field" hidden>
-            <label for="auth-confirm-password">Confirme sua senha</label>
-            <input id="auth-confirm-password" type="password" minlength="6" autocomplete="new-password" />
+          <div class="auth-panel__heading">
+            <p class="form-heading__eyebrow">Bem-vindo de volta</p>
+            <h2 id="auth-title">Entre para consultar seus documentos</h2>
+            <p id="auth-subtitle" class="auth-subtitle">Acesse sua conta para continuar.</p>
           </div>
-          <button id="auth-submit" type="submit">Entrar</button>
-        </form>
-        <p id="auth-message" class="status-message" role="alert" hidden></p>
+          <form id="auth-form">
+            <div id="auth-phone-field" class="auth-field" hidden>
+              <label for="auth-phone">Telefone</label>
+              <input id="auth-phone" type="tel" autocomplete="tel" placeholder="+55 (11) 99999-9999" />
+            </div>
+            <div class="auth-field">
+              <label id="auth-email-label" for="auth-email">E-mail</label>
+              <input id="auth-email" type="email" autocomplete="email" placeholder="voce@empresa.com" required />
+            </div>
+            <div class="auth-field">
+              <label id="auth-password-label" for="auth-password">Senha</label>
+              <div class="password-input">
+                <input id="auth-password" type="password" minlength="6" autocomplete="current-password" placeholder="Digite sua senha" required />
+                <button class="password-toggle" type="button" data-password-toggle="auth-password" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg class="icon-eye icon-eye--open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5 8.5-5 8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5Z" /><circle cx="12" cy="12" r="2" /></svg>
+                  <svg class="icon-eye icon-eye--closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 16M10.6 6.2A9.8 9.8 0 0 1 12 6c5.5 0 8.5 6 8.5 6a16.8 16.8 0 0 1-2.25 2.9M6.5 8.5C4.5 10.1 3.5 12 3.5 12s3 6 8.5 6c.8 0 1.55-.12 2.25-.33" /></svg>
+                </button>
+              </div>
+            </div>
+            <div id="auth-confirm-password-field" class="auth-field" hidden>
+              <label for="auth-confirm-password">Confirme sua senha</label>
+              <div class="password-input">
+                <input id="auth-confirm-password" type="password" minlength="6" autocomplete="new-password" placeholder="Repita sua senha" />
+                <button class="password-toggle" type="button" data-password-toggle="auth-confirm-password" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg class="icon-eye icon-eye--open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12s3-5 8.5-5 8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5Z" /><circle cx="12" cy="12" r="2" /></svg>
+                  <svg class="icon-eye icon-eye--closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 16M10.6 6.2A9.8 9.8 0 0 1 12 6c5.5 0 8.5 6 8.5 6a16.8 16.8 0 0 1-2.25 2.9M6.5 8.5C4.5 10.1 3.5 12 3.5 12s3 6 8.5 6c.8 0 1.55-.12 2.25-.33" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="auth-options">
+              <label class="remember-label"><input type="checkbox" /> <span>Manter sessão ativa</span></label>
+              <button id="forgot-password" class="text-button" type="button">Esqueci minha senha</button>
+            </div>
+            <button id="auth-submit" class="auth-submit" type="submit"><span>Entrar no DocuMind</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg></button>
+          </form>
+          <p id="auth-message" class="status-message" role="alert" hidden></p>
+          <p class="auth-switch">Ainda não tem uma conta? <button id="signup-link" class="text-button text-button--strong" type="button">Criar conta</button></p>
+        </section>
       </section>
 
       <section class="workspace" aria-label="Consultar um documento" hidden>
