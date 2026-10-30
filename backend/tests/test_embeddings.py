@@ -1,72 +1,72 @@
 import math
-from types import SimpleNamespace
 
 import pytest
 
-from app.core.config import settings
-from app.services.embeddings import EmbeddingError, GeminiEmbedder
+from app.services.embeddings import EmbeddingError, NomicEmbedder
 
 
-class FakeModels:
+class FakeModel:
     def __init__(self, dimensions: int, error: Exception | None = None) -> None:
         self.dimensions = dimensions
         self.error = error
         self.calls: list[dict] = []
 
-    def embed_content(self, *, model, contents, config):
-        self.calls.append({"model": model, "size": len(contents), "config": config})
+    def encode(self, texts, **kwargs):
+        self.calls.append({"texts": texts, **kwargs})
         if self.error:
             raise self.error
-        return SimpleNamespace(
-            embeddings=[SimpleNamespace(values=[3.0] * self.dimensions) for _ in contents]
-        )
+        return [[3.0] * self.dimensions for _ in texts]
 
 
 def make_embedder(dimensions: int = 4, error: Exception | None = None):
-    models = FakeModels(dimensions, error)
-    embedder = GeminiEmbedder("chave", "modelo", dimensions, client=SimpleNamespace(models=models))
-    return embedder, models
+    model = FakeModel(dimensions, error)
+    return NomicEmbedder(dimensions=dimensions, model=model), model
 
 
-def test_documents_are_batched_normalized_and_use_document_task() -> None:
-    embedder, models = make_embedder()
+def test_documents_are_batched_prefixed_and_normalized() -> None:
+    embedder, model = make_embedder()
     vectors = embedder.embed_documents([f"trecho {i}" for i in range(250)])
-    assert [call["size"] for call in models.calls] == [100, 100, 50]
-    assert all(call["config"].task_type == "RETRIEVAL_DOCUMENT" for call in models.calls)
-    assert all(call["config"].output_dimensionality == 4 for call in models.calls)
+    assert [len(call["texts"]) for call in model.calls] == [100, 100, 50]
+    assert all(
+        text.startswith("search_document: ")
+        for call in model.calls
+        for text in call["texts"]
+    )
+    assert all(call["convert_to_numpy"] for call in model.calls)
     assert len(vectors) == 250
-    assert math.sqrt(sum(v * v for v in vectors[0])) == pytest.approx(1.0)
+    assert math.sqrt(sum(value * value for value in vectors[0])) == pytest.approx(1.0)
 
 
-def test_query_uses_query_task() -> None:
-    embedder, models = make_embedder()
+def test_query_uses_query_prefix() -> None:
+    embedder, model = make_embedder()
     vector = embedder.embed_query("pergunta")
-    assert models.calls[0]["config"].task_type == "RETRIEVAL_QUERY"
+    assert model.calls[0]["texts"] == ["search_query: pergunta"]
     assert len(vector) == 4
 
 
-def test_client_errors_become_embedding_error() -> None:
-    embedder, _ = make_embedder(error=RuntimeError("rede"))
-    with pytest.raises(EmbeddingError):
+def test_empty_documents_do_not_call_model() -> None:
+    embedder, model = make_embedder()
+    assert embedder.embed_documents([]) == []
+    assert model.calls == []
+
+
+def test_model_errors_become_embedding_error() -> None:
+    embedder, _ = make_embedder(error=RuntimeError("falha simulada"))
+    with pytest.raises(EmbeddingError, match="Falha ao gerar embeddings"):
         embedder.embed_query("pergunta")
 
 
-def test_missing_api_key_raises_embedding_error() -> None:
-    with pytest.raises(EmbeddingError):
-        GeminiEmbedder("", "modelo", 4).embed_query("pergunta")
+def test_unexpected_embedding_dimensions_raise_error() -> None:
+    embedder = NomicEmbedder(dimensions=5, model=FakeModel(dimensions=4))
+    with pytest.raises(EmbeddingError, match="dimensão inesperada"):
+        embedder.embed_query("pergunta")
 
 
-@pytest.mark.integration
-@pytest.mark.skipif(not settings.gemini_api_key, reason="DOCUMIND_GEMINI_API_KEY ausente")
-def test_gemini_embedder_real() -> None:
-    embedder = GeminiEmbedder(
-        settings.gemini_api_key, settings.gemini_embed_model, settings.embed_dim
-    )
-    documents = embedder.embed_documents(
-        ["O prazo para matrícula é 15 de fevereiro.", "A cantina abre às 7 horas."]
-    )
-    query = embedder.embed_query("Até quando posso fazer a matrícula?")
-    assert len(query) == settings.embed_dim
-    assert sum(a * b for a, b in zip(query, documents[0])) > sum(
-        a * b for a, b in zip(query, documents[1])
-    )
+def test_unexpected_embedding_count_raises_error() -> None:
+    class WrongCountModel:
+        def encode(self, texts, **kwargs):
+            return []
+
+    embedder = NomicEmbedder(model=WrongCountModel())
+    with pytest.raises(EmbeddingError, match="quantidade inesperada"):
+        embedder.embed_query("pergunta")

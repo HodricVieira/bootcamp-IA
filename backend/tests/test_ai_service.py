@@ -17,7 +17,7 @@ from app.services.ai_service import (
     get_answerer,
 )
 from app.services.document_store import ScoredChunk
-from app.services.embeddings import GeminiEmbedder, get_embedder
+from app.services.embeddings import NomicEmbedder, get_embedder
 
 from .conftest import FakeAnswerer
 
@@ -272,9 +272,7 @@ def test_paraphrased_question_against_real_gemini() -> None:
     pdf = document.tobytes()
     document.close()
 
-    app.dependency_overrides[get_embedder] = lambda: GeminiEmbedder(
-        settings.gemini_api_key, settings.gemini_embed_model, settings.embed_dim
-    )
+    app.dependency_overrides[get_embedder] = lambda: NomicEmbedder()
     app.dependency_overrides[get_answerer] = lambda: GeminiAnswerer(
         settings.gemini_api_key, settings.gemini_chat_model
     )

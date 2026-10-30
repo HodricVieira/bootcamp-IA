@@ -13,8 +13,6 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_chat_model: str = "gemini-3.6-flash"
-    gemini_embed_model: str = "gemini-embedding-001"
-    embed_dim: int = 768
 
     storage_backend: Literal["memory", "supabase"] = "memory"
     supabase_url: str = ""

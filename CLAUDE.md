@@ -6,9 +6,9 @@ MVP do Bootcamp IA First. É um chatbot que recebe **um PDF por sessão** e resp
 
 ## Stack
 
-- `backend/`: FastAPI, Python 3.12, PyMuPDF, SDK `google-genai`, Supabase (pgvector + Storage).
+- `backend/`: FastAPI, Python 3.12, PyMuPDF, SDK `google-genai`, `sentence-transformers`, Supabase (pgvector + Storage).
 - `frontend/`: HTML + CSS + JS puro (`index.html`, `app.js`, `styles.css`), servido pelo FastAPI via `StaticFiles` em `/`. **Não migrar para React/Vite.**
-- Modelos: `gemini-3.6-flash` para respostas e `gemini-embedding-001` (768 dimensões) para embeddings, configuráveis por `.env`.
+- Modelos: `gemini-3.6-flash` para respostas e `nomic-ai/nomic-embed-text-v1.5` (768 dimensões, local) para embeddings.
 
 ## Onde fica cada etapa do RAG (`backend/app/services/`)
 
@@ -73,6 +73,6 @@ Os demais erros ainda vêm como `{"detail": "..."}`:
 | 404 | Documento inexistente |
 | 502 | Falha no Gemini, com a mensagem "O serviço de IA não respondeu. Tente de novo." |
 
-As chamadas ao Gemini (`GeminiEmbedder` e `GeminiAnswerer`) fazem até 2 novas tentativas, com espera
-de 1s e depois 2s, só para erros temporários (5xx, 429, timeout, falha de conexão). Outros 4xx, como chave inválida,
-falham na hora.
+O `NomicEmbedder` gera embeddings localmente. As chamadas do `GeminiAnswerer` fazem até 2 novas
+tentativas, com espera de 1s e depois 2s, só para erros temporários (5xx, 429, timeout, falha de
+conexão). Outros 4xx, como chave inválida, falham na hora.

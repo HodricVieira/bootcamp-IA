@@ -6,8 +6,8 @@ fundamentam. Quando o documento não tem base para responder, a resposta é semp
 
 > Não encontrei informações sobre isso no documento enviado.
 
-**Stack:** FastAPI (Python 3.12), PyMuPDF, Gemini (`gemini-3.6-flash` para respostas e
-`gemini-embedding-001` para embeddings), Supabase (pgvector + Storage) opcional, e front-end em
+**Stack:** FastAPI (Python 3.12), PyMuPDF, Gemini (`gemini-3.6-flash` para respostas), Nomic
+Embed Text v1.5 para embeddings locais, Supabase (pgvector + Storage) opcional, e front-end em
 HTML + CSS + JS puro servido pela própria API.
 
 ```
@@ -16,7 +16,7 @@ frontend/   index.html, app.js, styles.css
 supabase/   migrations/ com o SQL para rodar no painel do Supabase
 ```
 
-## Chaves e `.env`
+## Chave do Gemini e `.env`
 
 1. Acesse <https://aistudio.google.com/apikey>, entre com uma conta Google e clique em
    **Create API key**. Copie a chave.
