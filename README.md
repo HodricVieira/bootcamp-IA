@@ -1,4 +1,4 @@
-<<<<<<< feat/documind-mvp
+
 # DocuMind
 
 MVP do Bootcamp IA First. O DocuMind é um chatbot que recebe **um PDF por sessão** e responde
@@ -111,6 +111,4 @@ real e são pulados se não houver chave no `.env`. A lista dos seis testes esse
    pergunta é uma paráfrase: não usa "prazo" nem "termina".
 4. **Pergunta sem resposta:** "Qual é o valor da mensalidade?" → "Não encontrei informações
    sobre isso no documento enviado.", sem fontes.
-=======
-# Documind
->>>>>>> main
+
