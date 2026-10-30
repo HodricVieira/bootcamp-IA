@@ -50,12 +50,20 @@ As rotas ficam em `app/api/routes/documents.py`.
   O Gemini responde com o schema `{found: bool, answer: str, citations: [{ref: int, quote: str}]}`.
 - `DELETE /documents/{id}`: devolve 204.
 
-Erros:
+Erros do upload vêm como `{"detail": {"code": "...", "message": "..."}}`:
 
-| Código | Situação |
+| HTTP | `code` | Situação |
+| --- | --- | --- |
+| 400 | `EMPTY_FILE` | Arquivo vazio |
+| 400 | `INVALID_PDF` | Arquivo não é um PDF legível |
+| 413 | `FILE_TOO_LARGE` | Acima de 10 MiB |
+| 413 | `TOO_MANY_PAGES` | Acima de 100 páginas |
+| 422 | `PASSWORD_PROTECTED` | PDF protegido por senha |
+| 422 | `NO_EXTRACTABLE_TEXT` | PDF sem camada de texto (sem OCR) |
+
+Os demais erros ainda vêm como `{"detail": "..."}`:
+
+| HTTP | Situação |
 | --- | --- |
-| 400 | Arquivo vazio ou inválido |
-| 413 | Acima de 10 MB ou de 100 páginas |
-| 415 | Arquivo não é PDF |
 | 404 | Documento inexistente |
 | 502 | Falha no Gemini, com a mensagem "O serviço de IA não respondeu. Tente de novo." |
