@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     storage_backend: Literal["memory", "supabase"] = "memory"
     supabase_url: str = ""
+    supabase_publishable_key: str = ""
     supabase_service_role_key: str = ""
     supabase_bucket: str = "documents"
 
