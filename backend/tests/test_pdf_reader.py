@@ -1,7 +1,12 @@
 import fitz
 import pytest
 
-from app.services.pdf_reader import PDFReaderError, PDFTooManyPagesError, extract_text
+from app.services.pdf_reader import (
+    PDFReaderError,
+    PDFTooManyPagesError,
+    _normalize_text,
+    extract_text,
+)
 
 
 def test_extract_text_preserves_pages(pdf_bytes: bytes) -> None:
@@ -28,3 +33,15 @@ def test_rejects_pdf_above_max_pages(pdf_bytes: bytes) -> None:
     with pytest.raises(PDFTooManyPagesError):
         extract_text(pdf_bytes, max_pages=1)
     assert extract_text(pdf_bytes, max_pages=2).pages == 2
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("7 dias\ncorridos", "7 dias corridos"),
+        ("Escola Horizonte.\nO prazo", "Escola Horizonte. O prazo"),
+        ("a\t\r\n b\x00c", "a bc"),
+    ],
+)
+def test_normalize_text_keeps_words_separated_by_line_breaks(raw: str, expected: str) -> None:
+    assert _normalize_text(raw) == expected

@@ -67,11 +67,11 @@ def extract_text(pdf_bytes: bytes, max_pages: int | None = None) -> ExtractionRe
         document.close()
 
 
-_CONTROL_OR_WHITESPACE = re.compile(r"\s+", re.UNICODE)
+_WHITESPACE = re.compile(r"\s+", re.UNICODE)
 
 
 def _normalize_text(text: str) -> str:
-    without_controls = "".join(
-        character for character in text if not unicodedata.category(character).startswith("C")
-    )
-    return _CONTROL_OR_WHITESPACE.sub(" ", without_controls).strip()
+    collapsed = _WHITESPACE.sub(" ", text)
+    return "".join(
+        character for character in collapsed if not unicodedata.category(character).startswith("C")
+    ).strip()
