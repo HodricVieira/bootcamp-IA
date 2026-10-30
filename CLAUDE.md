@@ -46,7 +46,9 @@ As rotas ficam em `app/api/routes/documents.py`.
 ```
 
   Quando `found` for `false`, `answer` é a mensagem fixa e `sources` vem vazio.
-  `sources` traz só os trechos citados. `text` é o trecho completo; `quote` é a frase literal e curta (até ~200 caracteres) que sustenta a resposta, conferida no backend contra o `text` sem diferenciar maiúsculas e espaços. Se o modelo inventar a frase, `quote` vem vazio.
+  `sources` traz só os trechos citados. `text` é o trecho completo; `quote` é a frase curta (até ~200 caracteres) que sustenta a resposta, conferida no backend contra o `text` sem diferenciar maiúsculas e espaços.
+  Citações cuja frase não é encontrada no trecho são descartadas; se nenhuma sobrar, a resposta vira `found: false`. Por isso `quote` nunca vem vazio e é sempre o recorte do texto original do trecho (espaços normalizados em um só), não a frase como o modelo escreveu.
+  Os marcadores na resposta são sempre `[n]` (um número por colchete; `[3, 4]` e `[3-4]` viram `[3][4]`). Os `ref` vêm numerados em sequência a partir de 1, na ordem em que aparecem no texto, e cada marcador corresponde a um `ref` de `sources`. Marcadores de referências descartadas são removidos. Só contam como marcador números entre 1 e a quantidade de trechos enviados ao modelo; outros colchetes, como `[2024]`, ficam intactos.
   O Gemini responde com o schema `{found: bool, answer: str, citations: [{ref: int, quote: str}]}`.
 - `DELETE /documents/{id}`: devolve 204.
 
