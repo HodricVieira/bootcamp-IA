@@ -87,6 +87,8 @@ Reiniciar o servidor apaga todos os documentos.
 
 5. Rode `uvicorn app.main:app --reload` normalmente. O PDF vai para o Storage e os trechos com
    embeddings vão para a tabela `chunks`; os documentos sobrevivem a reinícios.
+6. Execute também `../supabase/migrations/0002_documents_user.sql` depois da migração inicial para
+   associar documentos aos usuários e habilitar as políticas RLS.
 
 A chave `service_role` ignora o RLS: use-a só no backend, nunca no front-end.
 
@@ -95,6 +97,7 @@ A chave `service_role` ignora o RLS: use-a só no backend, nunca no front-end.
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | `GET` | `/health` | Verifica se a API está no ar |
+| `GET` | `/config/public` | Disponibiliza URL e chave pública do Supabase, sem expor a `service_role` |
 | `POST` | `/documents/upload` | Multipart, campo `file`. Devolve `201` com `document_id`, `filename`, `pages`, `characters`, `status` |
 | `GET` | `/documents/{id}` | Metadados do documento |
 | `POST` | `/documents/{id}/ask` | Body `{"question": "..."}`. Devolve a resposta com fontes |

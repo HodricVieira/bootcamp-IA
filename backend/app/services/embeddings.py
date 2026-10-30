@@ -4,11 +4,23 @@ from typing import Any, Protocol
 
 MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
 EMBEDDING_DIMENSIONS = 768
+import time
+from collections.abc import Callable
+from functools import lru_cache
+from typing import Any, Protocol
+
+from app.core.config import settings
+from app.services.gemini_retry import RateLimitedError, call_with_retry, is_rate_limited
+
 BATCH_SIZE = 100
 
 
 class EmbeddingError(RuntimeError):
     """Indica que não foi possível gerar os embeddings."""
+
+
+class EmbeddingRateLimitError(EmbeddingError, RateLimitedError):
+    """Indica que o limite de uso do Gemini foi atingido."""
 
 
 class Embedder(Protocol):

@@ -19,10 +19,31 @@ const questionInput = document.querySelector("#question");
 const submitButton = document.querySelector("#submit-button");
 const buttonLabel = document.querySelector("#button-label");
 const statusMessage = document.querySelector("#status-message");
+const authPanel = document.querySelector("#auth-panel");
+const workspace = document.querySelector(".workspace");
+const authTitle = document.querySelector("#auth-title");
+const authSubtitle = document.querySelector("#auth-subtitle");
+const authPasswordLabel = document.querySelector("#auth-password-label");
+const authPhoneField = document.querySelector("#auth-phone-field");
+const authPhone = document.querySelector("#auth-phone");
+const authConfirmPasswordField = document.querySelector("#auth-confirm-password-field");
+const authConfirmPassword = document.querySelector("#auth-confirm-password");
+const authForm = document.querySelector("#auth-form");
+const authEmail = document.querySelector("#auth-email");
+const authPassword = document.querySelector("#auth-password");
+const authSubmit = document.querySelector("#auth-submit");
+const authMessage = document.querySelector("#auth-message");
+const loginTab = document.querySelector("#login-tab");
+const signupTab = document.querySelector("#signup-tab");
+const signoutButton = document.querySelector("#signout-button");
+const accountEmail = document.querySelector("#account-email");
 
 let activeDocument = null;
 let isUploading = false;
 let isAsking = false;
+let authMode = "login";
+let supabaseClient = null;
+let accessToken = null;
 
 class ApiError extends Error {
   constructor(message, status, code) {
@@ -68,7 +89,15 @@ function getErrorCode(payload) {
 }
 
 async function requestJson(url, options, fallbackMessage) {
-  const response = await fetch(url, options);
+  const requestOptions = { ...options, headers: { ...(options?.headers || {}) } };
+  if (supabaseClient) {
+    const session = (await supabaseClient.auth.getSession()).data.session;
+    accessToken = session?.access_token || null;
+  }
+  if (accessToken) {
+    requestOptions.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  const response = await fetch(url, requestOptions);
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -80,6 +109,85 @@ async function requestJson(url, options, fallbackMessage) {
   }
 
   return payload;
+}
+
+function showAuthMessage(message, isError = true) {
+  authMessage.textContent = message;
+  authMessage.classList.toggle("error", isError);
+  authMessage.hidden = false;
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const signingUp = mode === "signup";
+  authPanel.classList.remove("auth-mode-change");
+  void authPanel.offsetWidth;
+  authPanel.classList.add("auth-mode-change");
+  loginTab.classList.toggle("is-active", !signingUp);
+  signupTab.classList.toggle("is-active", signingUp);
+  authTitle.textContent = signingUp
+    ? "Crie sua conta no DocuMind"
+    : "Entre para consultar seus documentos";
+  authSubtitle.textContent = signingUp
+    ? "Cadastre-se para salvar seus documentos com segurança."
+    : "Acesse sua conta para continuar.";
+  authPasswordLabel.textContent = signingUp ? "Crie uma senha" : "Senha";
+  authSubmit.textContent = signingUp ? "Criar minha conta" : "Entrar";
+  authPassword.autocomplete = signingUp ? "new-password" : "current-password";
+  authPhoneField.hidden = !signingUp;
+  authConfirmPasswordField.hidden = !signingUp;
+  authPhone.required = signingUp;
+  authConfirmPassword.required = signingUp;
+  authMessage.hidden = true;
+}
+
+function showAuthenticated(user) {
+  authPanel.hidden = true;
+  workspace.hidden = false;
+  accountEmail.textContent = user.email || "Conta autenticada";
+  updateControls();
+}
+
+function showUnauthenticated() {
+  accessToken = null;
+  activeDocument = null;
+  authPanel.hidden = false;
+  workspace.hidden = true;
+  resetUploadArea();
+  chatHistory.replaceChildren();
+  chatHistory.hidden = true;
+  updateControls();
+}
+
+async function initializeAuth() {
+  const config = await requestJson(
+    "/config/public",
+    {},
+    "Não foi possível carregar a configuração de autenticação.",
+  );
+  if (!config.supabase_url || !config.supabase_publishable_key || !window.supabase) {
+    showAuthMessage("A autenticação ainda não foi configurada no servidor.");
+    return;
+  }
+  supabaseClient = window.supabase.createClient(
+    config.supabase_url,
+    config.supabase_publishable_key,
+  );
+  const { data } = await supabaseClient.auth.getSession();
+  accessToken = data.session?.access_token || null;
+  if (data.session?.user) {
+    showAuthenticated(data.session.user);
+  } else {
+    showUnauthenticated();
+  }
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    accessToken = session?.access_token || null;
+    if (session?.user) {
+      showAuthenticated(session.user);
+    } else {
+      showUnauthenticated();
+    }
+  });
 }
 
 function describeError(error) {
@@ -432,4 +540,49 @@ newChatButton.addEventListener("click", async () => {
   fileInput.focus();
 });
 
+loginTab.addEventListener("click", () => setAuthMode("login"));
+signupTab.addEventListener("click", () => setAuthMode("signup"));
+
+authForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!supabaseClient) {
+    showAuthMessage("A autenticação ainda não foi configurada no servidor.");
+    return;
+  }
+  authSubmit.disabled = true;
+  authMessage.hidden = true;
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  if (authMode === "signup" && password !== authConfirmPassword.value) {
+    authSubmit.disabled = false;
+    showAuthMessage("As senhas não conferem.");
+    authConfirmPassword.focus();
+    return;
+  }
+  const result =
+    authMode === "signup"
+      ? await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: { data: { phone: authPhone.value.trim() } },
+        })
+      : await supabaseClient.auth.signInWithPassword({ email, password });
+  authSubmit.disabled = false;
+  if (result.error) {
+    showAuthMessage(result.error.message);
+    return;
+  }
+  if (authMode === "signup" && !result.data.session) {
+    showAuthMessage("Conta criada. Verifique seu e-mail para confirmar o cadastro.", false);
+  }
+  authForm.reset();
+});
+
+signoutButton.addEventListener("click", async () => {
+  await supabaseClient?.auth.signOut();
+});
+
 updateControls();
+initializeAuth().catch((error) => {
+  showAuthMessage(describeError(error));
+});

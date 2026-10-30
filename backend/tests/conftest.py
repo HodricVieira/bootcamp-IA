@@ -6,6 +6,7 @@ import fitz
 import pytest
 
 from app.main import app
+from app.core.auth import get_current_user
 from app.services.ai_service import get_answerer
 from app.services.document_store import MemoryDocumentStore, ScoredChunk, get_document_store
 from app.services.embeddings import get_embedder, normalize
@@ -59,6 +60,13 @@ class FakeAnswerer:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "integration: chama o Gemini real (requer chave)")
+
+
+@pytest.fixture(autouse=True)
+def fake_current_user():
+    app.dependency_overrides[get_current_user] = lambda: "11111111-1111-1111-1111-111111111111"
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture(autouse=True)

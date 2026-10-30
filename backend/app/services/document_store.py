@@ -32,6 +32,7 @@ class StoredDocument:
     filename: str
     pages: int
     characters: int
+    user_id: str
 
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:
@@ -79,19 +80,21 @@ class DocumentStore(Protocol):
         characters: int,
         chunks: list[StoredChunk],
         content: bytes,
+        user_id: str,
     ) -> StoredDocument: ...
 
-    def get(self, document_id: UUID) -> StoredDocument | None: ...
+    def get(self, document_id: UUID, user_id: str) -> StoredDocument | None: ...
 
     def search(
         self,
         document_id: UUID,
+        user_id: str,
         query_embedding: list[float],
         limit: int,
         min_similarity: float,
     ) -> list[ScoredChunk]: ...
 
-    def delete(self, document_id: UUID) -> bool: ...
+    def delete(self, document_id: UUID, user_id: str) -> bool: ...
 
 
 class MemoryDocumentStore:
@@ -108,30 +111,37 @@ class MemoryDocumentStore:
         characters: int,
         chunks: list[StoredChunk],
         content: bytes,
+        user_id: str,
     ) -> StoredDocument:
         document = StoredDocument(
-            document_id=uuid4(), filename=filename, pages=pages, characters=characters
+            document_id=uuid4(), filename=filename, pages=pages, characters=characters, user_id=user_id
         )
         self._documents[document.document_id] = document
         self._chunks[document.document_id] = chunks
         return document
 
-    def get(self, document_id: UUID) -> StoredDocument | None:
-        return self._documents.get(document_id)
+    def get(self, document_id: UUID, user_id: str) -> StoredDocument | None:
+        document = self._documents.get(document_id)
+        return document if document and document.user_id == user_id else None
 
     def search(
         self,
         document_id: UUID,
+        user_id: str,
         query_embedding: list[float],
         limit: int,
         min_similarity: float,
     ) -> list[ScoredChunk]:
+        if self.get(document_id, user_id) is None:
+            return []
         chunks = self._chunks.get(document_id)
         if chunks is None:
             return []
         return rank_by_similarity(chunks, query_embedding, limit, min_similarity)
 
-    def delete(self, document_id: UUID) -> bool:
+    def delete(self, document_id: UUID, user_id: str) -> bool:
+        if self.get(document_id, user_id) is None:
+            return False
         self._chunks.pop(document_id, None)
         return self._documents.pop(document_id, None) is not None
 
@@ -158,9 +168,10 @@ class SupabaseDocumentStore:
         characters: int,
         chunks: list[StoredChunk],
         content: bytes,
+        user_id: str,
     ) -> StoredDocument:
         document = StoredDocument(
-            document_id=uuid4(), filename=filename, pages=pages, characters=characters
+            document_id=uuid4(), filename=filename, pages=pages, characters=characters, user_id=user_id
         )
         document_id = str(document.document_id)
         storage_path = self._storage_path(document.document_id)
@@ -171,6 +182,7 @@ class SupabaseDocumentStore:
             self._client.table("documents").insert(
                 {
                     "id": document_id,
+                    "user_id": user_id,
                     "filename": filename,
                     "storage_path": storage_path,
                     "pages": pages,
@@ -194,11 +206,12 @@ class SupabaseDocumentStore:
             raise
         return document
 
-    def get(self, document_id: UUID) -> StoredDocument | None:
+    def get(self, document_id: UUID, user_id: str) -> StoredDocument | None:
         response = (
             self._client.table("documents")
-            .select("id, filename, pages, characters")
+            .select("id, user_id, filename, pages, characters")
             .eq("id", str(document_id))
+            .eq("user_id", user_id)
             .limit(1)
             .execute()
         )
@@ -210,11 +223,13 @@ class SupabaseDocumentStore:
             filename=row["filename"],
             pages=row["pages"],
             characters=row["characters"],
+            user_id=row["user_id"],
         )
 
     def search(
         self,
         document_id: UUID,
+        user_id: str,
         query_embedding: list[float],
         limit: int,
         min_similarity: float,
@@ -238,8 +253,8 @@ class SupabaseDocumentStore:
         ]
         return filter_relevant(scored, limit, min_similarity)
 
-    def delete(self, document_id: UUID) -> bool:
-        if self.get(document_id) is None:
+    def delete(self, document_id: UUID, user_id: str) -> bool:
+        if self.get(document_id, user_id) is None:
             return False
         self._remove(document_id)
         return True

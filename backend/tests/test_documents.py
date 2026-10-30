@@ -1,6 +1,7 @@
 import fitz
 from fastapi.testclient import TestClient
 
+from app.core.auth import get_current_user
 from app.main import app
 from app.services.embeddings import EmbeddingError, get_embedder
 
@@ -144,3 +145,16 @@ def test_delete_document(pdf_bytes: bytes) -> None:
     document_id = upload(pdf_bytes)["document_id"]
     assert client.delete(f"/documents/{document_id}").status_code == 204
     assert client.get(f"/documents/{document_id}").status_code == 404
+
+
+def test_document_is_isolated_between_users(pdf_bytes: bytes) -> None:
+    document_id = upload(pdf_bytes)["document_id"]
+    app.dependency_overrides[get_current_user] = lambda: "22222222-2222-2222-2222-222222222222"
+    try:
+        assert client.get(f"/documents/{document_id}").status_code == 404
+        assert client.post(
+            f"/documents/{document_id}/ask", json={"question": "prazo"}
+        ).status_code == 404
+        assert client.delete(f"/documents/{document_id}").status_code == 404
+    finally:
+        app.dependency_overrides[get_current_user] = lambda: "11111111-1111-1111-1111-111111111111"

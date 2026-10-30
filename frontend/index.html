@@ -15,6 +15,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -41,7 +42,36 @@
         </p>
       </section>
 
-      <section class="workspace" aria-label="Consultar um documento">
+      <section id="auth-panel" class="auth-panel" aria-labelledby="auth-title">
+        <h2 id="auth-title">Entre para consultar seus documentos</h2>
+        <p id="auth-subtitle" class="auth-subtitle">Acesse sua conta para continuar.</p>
+        <div class="auth-tabs">
+          <button id="login-tab" type="button" class="auth-tab is-active">Entrar</button>
+          <button id="signup-tab" type="button" class="auth-tab">Criar conta</button>
+        </div>
+        <form id="auth-form">
+          <div id="auth-phone-field" class="auth-field" hidden>
+            <label for="auth-phone">Telefone</label>
+            <input id="auth-phone" type="tel" autocomplete="tel" placeholder="+55 (11) 99999-9999" />
+          </div>
+          <label id="auth-email-label" for="auth-email">E-mail</label>
+          <input id="auth-email" type="email" autocomplete="email" required />
+          <label id="auth-password-label" for="auth-password">Senha</label>
+          <input id="auth-password" type="password" minlength="6" autocomplete="current-password" required />
+          <div id="auth-confirm-password-field" class="auth-field" hidden>
+            <label for="auth-confirm-password">Confirme sua senha</label>
+            <input id="auth-confirm-password" type="password" minlength="6" autocomplete="new-password" />
+          </div>
+          <button id="auth-submit" type="submit">Entrar</button>
+        </form>
+        <p id="auth-message" class="status-message" role="alert" hidden></p>
+      </section>
+
+      <section class="workspace" aria-label="Consultar um documento" hidden>
+        <div class="account-bar">
+          <span id="account-email"></span>
+          <button id="signout-button" class="secondary-button" type="button">Sair</button>
+        </div>
         <div class="step-heading">
           <span class="step-number">01</span>
           <div>

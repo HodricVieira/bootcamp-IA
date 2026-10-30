@@ -24,6 +24,9 @@ supabase/   migrations/ com o SQL para rodar no painel do Supabase
 
    ```dotenv
    DOCUMIND_GEMINI_API_KEY=cole-a-chave-aqui
+   DOCUMIND_SUPABASE_URL=https://<projeto>.supabase.co
+   DOCUMIND_SUPABASE_PUBLISHABLE_KEY=chave-publica
+   DOCUMIND_SUPABASE_SERVICE_ROLE_KEY=chave-privada-apenas-no-backend
    ```
 
 O `.env` não vai para o Git. A tabela de todas as variáveis está no
@@ -44,8 +47,9 @@ Abra <http://127.0.0.1:8000/> (interface) ou <http://127.0.0.1:8000/docs> (Swagg
 - **Memória** (padrão, `DOCUMIND_STORAGE_BACKEND=memory`): não precisa de mais nada. Reiniciar o
   servidor apaga os documentos.
 - **Supabase** (`DOCUMIND_STORAGE_BACKEND=supabase`): rode manualmente
-  `supabase/migrations/0001_init_documind.sql` no SQL Editor do projeto e preencha
-  `DOCUMIND_SUPABASE_URL` e `DOCUMIND_SUPABASE_SERVICE_ROLE_KEY` no `.env`. Passo a passo no
+  `supabase/migrations/0001_init_documind.sql` e depois
+  `supabase/migrations/0002_documents_user.sql` no SQL Editor do projeto e preencha
+  as variáveis do Supabase no `.env`. Passo a passo no
   [backend/README.md](backend/README.md#modo-supabase).
 
 ## Endpoints
@@ -53,6 +57,7 @@ Abra <http://127.0.0.1:8000/> (interface) ou <http://127.0.0.1:8000/docs> (Swagg
 | Método | Rota | Descrição |
 | --- | --- | --- |
 | `GET` | `/health` | Verifica se a API está no ar |
+| `GET` | `/config/public` | Disponibiliza apenas a configuração pública do Supabase |
 | `POST` | `/documents/upload` | Envia o PDF (multipart, campo `file`); devolve `201` com `document_id` |
 | `GET` | `/documents/{id}` | Metadados do documento |
 | `POST` | `/documents/{id}/ask` | `{"question": "..."}`; devolve `found`, `answer` e `sources` (página, trecho e frase citada) |

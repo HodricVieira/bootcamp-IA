@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
+from app.core.auth import get_current_user
 from app.core.config import settings
 from app.schemas.document import (
     DocumentMetadata,
@@ -53,6 +54,7 @@ def _parse_id(document_id: str) -> UUID:
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_201_CREATED)
 def upload_document(
     file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
     embedder: Embedder = Depends(get_embedder),
     document_store: DocumentStore = Depends(get_document_store),
 ) -> DocumentUploadResponse:
@@ -99,6 +101,7 @@ def upload_document(
             for index, (chunk, embedding) in enumerate(zip(text_chunks, embeddings))
         ],
         content=bytes(content),
+        user_id=user_id,
     )
     return DocumentUploadResponse(
         document_id=str(document.document_id),
@@ -111,9 +114,11 @@ def upload_document(
 
 @router.get("/{document_id}", response_model=DocumentMetadata)
 def get_document(
-    document_id: str, document_store: DocumentStore = Depends(get_document_store)
+    document_id: str,
+    user_id: str = Depends(get_current_user),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> DocumentMetadata:
-    document = document_store.get(_parse_id(document_id))
+    document = document_store.get(_parse_id(document_id), user_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Documento não encontrado.")
     return DocumentMetadata(
@@ -129,11 +134,12 @@ def get_document(
 def ask_document(
     document_id: str,
     request: QuestionRequest,
+    user_id: str = Depends(get_current_user),
     embedder: Embedder = Depends(get_embedder),
     answerer: Answerer = Depends(get_answerer),
     document_store: DocumentStore = Depends(get_document_store),
 ) -> QuestionResponse:
-    document = document_store.get(_parse_id(document_id))
+    document = document_store.get(_parse_id(document_id), user_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Documento não encontrado.")
     question = request.question.strip()
@@ -146,6 +152,7 @@ def ask_document(
         raise _ai_error(exc) from exc
     chunks = document_store.search(
         document.document_id,
+        user_id,
         query_embedding,
         limit=settings.max_search_results,
         min_similarity=settings.min_similarity,
@@ -171,7 +178,9 @@ def ask_document(
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
-    document_id: str, document_store: DocumentStore = Depends(get_document_store)
+    document_id: str,
+    user_id: str = Depends(get_current_user),
+    document_store: DocumentStore = Depends(get_document_store),
 ) -> None:
-    if not document_store.delete(_parse_id(document_id)):
+    if not document_store.delete(_parse_id(document_id), user_id):
         raise HTTPException(status_code=404, detail="Documento não encontrado.")
