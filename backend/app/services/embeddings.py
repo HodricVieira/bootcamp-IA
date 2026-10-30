@@ -1,21 +1,14 @@
 import math
-import time
-from collections.abc import Callable
 from functools import lru_cache
 from typing import Any, Protocol
 
-from app.core.config import settings
-from app.services.gemini_retry import RateLimitedError, call_with_retry, is_rate_limited
-
+MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
+EMBEDDING_DIMENSIONS = 768
 BATCH_SIZE = 100
 
 
 class EmbeddingError(RuntimeError):
     """Indica que não foi possível gerar os embeddings."""
-
-
-class EmbeddingRateLimitError(EmbeddingError, RateLimitedError):
-    """Indica que o limite de uso do Gemini foi atingido."""
 
 
 class Embedder(Protocol):
@@ -31,74 +24,68 @@ def normalize(vector: list[float]) -> list[float]:
     return [value / norm for value in vector]
 
 
-class GeminiEmbedder:
+class NomicEmbedder:
     def __init__(
         self,
-        api_key: str,
-        model: str,
-        dimensions: int,
-        client: Any = None,
-        sleep: Callable[[float], None] = time.sleep,
+        model_name: str = MODEL_NAME,
+        dimensions: int = EMBEDDING_DIMENSIONS,
+        model: Any = None,
     ) -> None:
-        self._api_key = api_key
-        self._model = model
+        self._model_name = model_name
         self._dimensions = dimensions
-        self._client = client
-        self._sleep = sleep
+        self._model = model
 
-    def _get_client(self) -> Any:
-        if self._client is None:
-            if not self._api_key:
-                raise EmbeddingError("DOCUMIND_GEMINI_API_KEY não configurada.")
-            from google import genai
+    def _get_model(self) -> Any:
+        if self._model is None:
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:
+                raise EmbeddingError(
+                    "A dependência sentence-transformers não está instalada."
+                ) from exc
+            try:
+                self._model = SentenceTransformer(self._model_name)
+            except Exception as exc:
+                raise EmbeddingError("Falha ao carregar o modelo Nomic.") from exc
+        return self._model
 
-            self._client = genai.Client(api_key=self._api_key)
-        return self._client
-
-    def _embed(self, texts: list[str], task_type: str) -> list[list[float]]:
-        from google.genai import types
-
-        client = self._get_client()
-        config = types.EmbedContentConfig(
-            task_type=task_type, output_dimensionality=self._dimensions
-        )
+    def _embed(self, texts: list[str], task: str) -> list[list[float]]:
+        model = self._get_model()
         vectors: list[list[float]] = []
         for start in range(0, len(texts), BATCH_SIZE):
             batch = texts[start : start + BATCH_SIZE]
             try:
-                response = call_with_retry(
-                    lambda: client.models.embed_content(
-                        model=self._model, contents=batch, config=config
-                    ),
-                    self._sleep,
+                encoded = model.encode(
+                    [f"{task}: {text}" for text in batch],
+                    batch_size=BATCH_SIZE,
+                    convert_to_numpy=True,
+                    show_progress_bar=False,
                 )
             except Exception as exc:
-                if is_rate_limited(exc):
-                    raise EmbeddingRateLimitError("Limite de uso do Gemini atingido.") from exc
-                raise EmbeddingError("Falha ao gerar embeddings no Gemini.") from exc
-            embeddings = response.embeddings or []
-            if len(embeddings) != len(batch):
-                raise EmbeddingError("O Gemini retornou uma quantidade inesperada de embeddings.")
-            for embedding in embeddings:
-                values = list(embedding.values or [])
+                raise EmbeddingError("Falha ao gerar embeddings com o Nomic.") from exc
+            rows = encoded.tolist() if hasattr(encoded, "tolist") else encoded
+            if len(rows) != len(batch):
+                raise EmbeddingError(
+                    "O Nomic retornou uma quantidade inesperada de embeddings."
+                )
+            for row in rows:
+                values = [float(value) for value in row]
                 if len(values) != self._dimensions:
-                    raise EmbeddingError("O Gemini retornou um embedding com dimensão inesperada.")
+                    raise EmbeddingError(
+                        "O Nomic retornou um embedding com dimensão inesperada."
+                    )
                 vectors.append(normalize(values))
         return vectors
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        return self._embed(texts, "RETRIEVAL_DOCUMENT")
+        return self._embed(texts, "search_document")
 
     def embed_query(self, text: str) -> list[float]:
-        return self._embed([text], "RETRIEVAL_QUERY")[0]
+        return self._embed([text], "search_query")[0]
 
 
 @lru_cache
 def get_embedder() -> Embedder:
-    return GeminiEmbedder(
-        api_key=settings.gemini_api_key,
-        model=settings.gemini_embed_model,
-        dimensions=settings.embed_dim,
-    )
+    return NomicEmbedder()

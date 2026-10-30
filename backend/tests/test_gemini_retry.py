@@ -9,7 +9,6 @@ from google.genai import errors
 from app.main import app
 from app.services.ai_service import AIRateLimitError, AIServiceError, GeminiAnswerer, get_answerer
 from app.services.document_store import ScoredChunk
-from app.services.embeddings import EmbeddingError, EmbeddingRateLimitError, GeminiEmbedder
 from app.services.gemini_retry import is_transient
 
 client = TestClient(app)
@@ -39,10 +38,6 @@ class FakeModels:
         if self.failures:
             raise self.failures.pop(0)
 
-    def embed_content(self, *, model, contents, config):
-        self._next()
-        return SimpleNamespace(embeddings=[SimpleNamespace(values=[1.0] * 4) for _ in contents])
-
     def generate_content(self, *, model, contents, config):
         self._next()
         return SimpleNamespace(text=ANSWER)
@@ -52,17 +47,15 @@ def make(failures: list[Exception]):
     models = FakeModels(failures)
     sleeps: list[float] = []
     fake_client = SimpleNamespace(models=models)
-    embedder = GeminiEmbedder("chave", "modelo", 4, client=fake_client, sleep=sleeps.append)
     answerer = GeminiAnswerer("chave", "modelo", client=fake_client, sleep=sleeps.append)
-    return embedder, answerer, models, sleeps
+    return answerer, models, sleeps
 
 
 def test_fails_once_then_answers() -> None:
-    embedder, answerer, models, sleeps = make([api_error(503)])
-    assert len(embedder.embed_query("pergunta")) == 4
+    answerer, models, sleeps = make([api_error(503)])
+    assert answerer.generate("Qual o prazo?", CHUNKS) == ANSWER
     assert models.calls == 2
     assert sleeps == [1.0]
-
     models.failures = [api_error(503)]
     assert answerer.generate("Qual o prazo?", CHUNKS) == ANSWER
     assert models.calls == 4
@@ -70,12 +63,11 @@ def test_fails_once_then_answers() -> None:
 
 
 def test_always_429_retries_twice_then_raises_rate_limit() -> None:
-    embedder, answerer, models, sleeps = make([api_error(429) for _ in range(3)])
-    with pytest.raises(EmbeddingRateLimitError):
-        embedder.embed_query("pergunta")
+    answerer, models, sleeps = make([api_error(429) for _ in range(3)])
+    with pytest.raises(AIRateLimitError):
+        answerer.generate("Qual o prazo?", CHUNKS)
     assert models.calls == 3
     assert sleeps == [1.0, 2.0]
-
     models.failures = [api_error(429) for _ in range(3)]
     with pytest.raises(AIRateLimitError):
         answerer.generate("Qual o prazo?", CHUNKS)
@@ -83,16 +75,12 @@ def test_always_429_retries_twice_then_raises_rate_limit() -> None:
 
 
 def test_invalid_key_fails_without_retry() -> None:
-    embedder, answerer, models, sleeps = make([api_error(400)])
-    with pytest.raises(EmbeddingError) as embed_exc:
-        embedder.embed_query("pergunta")
-    assert not isinstance(embed_exc.value, EmbeddingRateLimitError)
-
+    answerer, models, sleeps = make([api_error(400)])
     models.failures = [api_error(400)]
     with pytest.raises(AIServiceError) as answer_exc:
         answerer.generate("Qual o prazo?", CHUNKS)
     assert not isinstance(answer_exc.value, AIRateLimitError)
-    assert models.calls == 2
+    assert models.calls == 1
     assert sleeps == []
 
 
@@ -113,7 +101,7 @@ def test_transient_classification(exc: Exception, expected: bool) -> None:
 
 
 def test_api_returns_429_when_gemini_stays_rate_limited(pdf_bytes: bytes) -> None:
-    _, answerer, _, _ = make([api_error(429) for _ in range(3)])
+    answerer, _, _ = make([api_error(429) for _ in range(3)])
     app.dependency_overrides[get_answerer] = lambda: answerer
     upload = client.post(
         "/documents/upload", files={"file": ("doc.pdf", pdf_bytes, "application/pdf")}

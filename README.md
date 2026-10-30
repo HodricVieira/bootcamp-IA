@@ -6,8 +6,8 @@ fundamentam. Quando o documento não tem base para responder, a resposta é semp
 
 > Não encontrei informações sobre isso no documento enviado.
 
-**Stack:** FastAPI (Python 3.12), PyMuPDF, Gemini (`gemini-3.6-flash` para respostas e
-`gemini-embedding-001` para embeddings), Supabase (pgvector + Storage) opcional, e front-end em
+**Stack:** FastAPI (Python 3.12), PyMuPDF, Gemini (`gemini-3.6-flash` para respostas), Nomic
+Embed Text v1.5 para embeddings locais, Supabase (pgvector + Storage) opcional, e front-end em
 HTML + CSS + JS puro servido pela própria API.
 
 ```

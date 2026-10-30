@@ -36,9 +36,14 @@ valores padrão:
 | `DOCUMIND_MAX_SEARCH_RESULTS` | `5` | Trechos enviados ao modelo |
 | `DOCUMIND_MIN_SIMILARITY` | `0.55` | Similaridade mínima; abaixo dela o Gemini nem é chamado |
 | `DOCUMIND_GEMINI_CHAT_MODEL` | `gemini-3.6-flash` | Modelo das respostas |
-| `DOCUMIND_GEMINI_EMBED_MODEL` / `DOCUMIND_EMBED_DIM` | `gemini-embedding-001` / `768` | Modelo e dimensão dos embeddings |
+| — | `nomic-ai/nomic-embed-text-v1.5` / `768` | Modelo local dos embeddings |
 | `DOCUMIND_STORAGE_BACKEND` | `memory` | `memory` ou `supabase` |
 | `DOCUMIND_SUPABASE_URL` / `DOCUMIND_SUPABASE_SERVICE_ROLE_KEY` / `DOCUMIND_SUPABASE_BUCKET` | — / — / `documents` | Só para o modo Supabase |
+
+Os embeddings são gerados localmente pelo Nomic; não é necessária uma chave de API para essa
+etapa. Na primeira utilização, `sentence-transformers` baixa o modelo do Hugging Face. O Gemini
+continua sendo usado para gerar as respostas. Se você já tinha documentos armazenados, envie-os
+novamente para substituir os embeddings antigos, que não são compatíveis com o Nomic.
 
 ## 2. Como rodar
 
@@ -151,7 +156,7 @@ Todas em `app/services/`:
 | --- | --- |
 | Extrair texto por página (PyMuPDF) | `pdf_reader.py` |
 | Dividir em trechos sem cortar palavras | `document_search.py` (`split_into_chunks`) |
-| Gerar embeddings (`gemini-embedding-001`, 768 dimensões) | `embeddings.py` |
+| Gerar embeddings (`nomic-embed-text-v1.5`, 768 dimensões) | `embeddings.py` |
 | Guardar e buscar por similaridade de cosseno (memória ou Supabase/pgvector) | `document_store.py` |
 | Montar o prompt, chamar o Gemini e validar as citações | `ai_service.py` |
 | Novas tentativas e tratamento de 429 | `gemini_retry.py` |
