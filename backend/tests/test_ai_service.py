@@ -80,7 +80,8 @@ def test_sources_only_include_cited_excerpts() -> None:
     )
     result = answer_question("Quais documentos?", CHUNKS, answerer)
     assert result.found is True
-    assert [(item.ref, item.page) for item in result.citations] == [(2, 2)]
+    assert result.answer == "Veja os documentos [1]."
+    assert [(item.ref, item.page) for item in result.citations] == [(1, 2)]
 
 
 def test_below_threshold_skips_llm(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> None:
@@ -143,7 +144,7 @@ def test_quote_uses_original_chunk_text() -> None:
     assert result.citations[0].quote == "7 dias corridos"
 
 
-def test_invented_quote_is_rejected_but_valid_sources_remain() -> None:
+def test_invented_quote_is_rejected_and_its_marker_removed() -> None:
     answerer = FakeAnswerer(
         model_json(
             True,
@@ -153,8 +154,48 @@ def test_invented_quote_is_rejected_but_valid_sources_remain() -> None:
     )
     result = answer_question("Qual o prazo?", CHUNKS, answerer)
     assert result.found is True
-    assert [(item.ref, item.quote) for item in result.citations] == [(2, "Documentos necessários")]
+    assert result.answer == "O prazo é 15 de fevereiro e há documentos [1]."
+    assert [(item.ref, item.quote) for item in result.citations] == [(1, "Documentos necessários")]
     assert result.citations[0].text == CHUNKS[1].text
+
+
+@pytest.mark.parametrize("markers", ["[1, 2]", "[1,2]", "[1-2]", "[1][2]"])
+def test_grouped_markers_are_split(markers: str) -> None:
+    answerer = FakeAnswerer(
+        model_json(
+            True,
+            f"O prazo é 15 de fevereiro e há documentos {markers}.",
+            [cite(1, "prazo para matrícula"), cite(2, "Documentos necessários")],
+        )
+    )
+    result = answer_question("Qual o prazo?", CHUNKS, answerer)
+    assert result.answer == "O prazo é 15 de fevereiro e há documentos [1][2]."
+    assert [item.ref for item in result.citations] == [1, 2]
+
+
+def test_brackets_outside_chunk_range_stay_intact() -> None:
+    answer = "Pela norma [2024], o prazo é 15 de fevereiro [2] no ciclo [2023-2024] e no item [0]."
+    answerer = FakeAnswerer(model_json(True, answer, [cite(2, "Documentos necessários")]))
+    result = answer_question("Qual o prazo?", CHUNKS, answerer)
+    assert result.answer == "Pela norma [2024], o prazo é 15 de fevereiro [1] no ciclo [2023-2024] e no item [0]."
+    assert [item.ref for item in result.citations] == [1]
+
+
+def test_sources_are_renumbered_in_order_of_appearance() -> None:
+    chunks = [
+        ScoredChunk(page=page, chunk_index=page - 1, text=f"Regra número {page} do edital.", score=0.7)
+        for page in range(1, 5)
+    ]
+    answerer = FakeAnswerer(
+        model_json(
+            True,
+            "A primeira vem da regra 4 [4] e a segunda da regra 3 [3]. Reveja a regra 4 [4].",
+            [cite(3, "Regra número 3"), cite(4, "Regra número 4")],
+        )
+    )
+    result = answer_question("Quais regras?", chunks, answerer)
+    assert result.answer == "A primeira vem da regra 4 [1] e a segunda da regra 3 [2]. Reveja a regra 4 [1]."
+    assert [(item.ref, item.page) for item in result.citations] == [(1, 4), (2, 3)]
 
 
 def test_gemini_error_returns_502(pdf_bytes: bytes, fake_answerer: FakeAnswerer) -> None:
