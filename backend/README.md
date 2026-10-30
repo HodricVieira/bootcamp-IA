@@ -17,7 +17,7 @@ cp .env.example .env
 Execute o servidor com `uvicorn app.main:app --reload`. A documentação Swagger fica em
 `http://127.0.0.1:8000/docs`. A página inicial fica em `http://127.0.0.1:8000/`.
 
-Na página inicial, envie um PDF pesquisável de até 10 MB, escreva uma pergunta e selecione
+Na página inicial, envie um PDF pesquisável de até 10 MiB, escreva uma pergunta e selecione
 **Consultar documento**. O documento é enviado uma vez; depois, é possível fazer outras
 perguntas sobre ele sem reenviar o arquivo. A API mantém os documentos em memória enquanto
 o servidor estiver em execução.
@@ -25,7 +25,7 @@ o servidor estiver em execução.
 ## Endpoints
 
 - `GET /health`: verifica o funcionamento.
-- `POST /documents/upload`: recebe o campo multipart `file` e processa um PDF de até 10 MB.
+- `POST /documents/upload`: recebe o campo multipart `file` e processa um PDF de até 10 MiB.
 - `GET /documents/{document_id}`: retorna somente os metadados.
 - `POST /documents/{document_id}/ask`: recebe `{"question": "..."}` e retorna fontes encontradas.
 - `DELETE /documents/{document_id}`: remove o documento da memória.
@@ -54,6 +54,11 @@ faz OCR, autenticação, banco de dados ou RAG/embeddings. Por isso, deve ser us
 ou em demonstrações, sem exposição pública de documentos privados. A interface de IA está
 desacoplada em `app/services/ai_service.py` e pode receber um provedor configurado por
 variável de ambiente em uma evolução posterior.
+
+Uploads que não são PDFs legíveis retornam `INVALID_PDF`; arquivos vazios retornam
+`EMPTY_FILE`; PDFs válidos sem camada de texto retornam `NO_EXTRACTABLE_TEXT` (OCR não está
+disponível); e arquivos acima de 10 MiB retornam `FILE_TOO_LARGE`. O documento só é persistido
+depois da extração e da geração dos embeddings.
 
 ## Testes
 

@@ -15,12 +15,22 @@ from app.services.ai_service import AIServiceError, Answerer, answer_question, g
 from app.services.document_search import split_into_chunks
 from app.services.document_store import DocumentStore, StoredChunk, get_document_store
 from app.services.embeddings import Embedder, EmbeddingError, get_embedder
-from app.services.pdf_reader import PDFReaderError, PDFTooManyPagesError, extract_text
+from app.services.pdf_reader import (
+    PDFPasswordError,
+    PDFReaderError,
+    PDFTooManyPagesError,
+    extract_text,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 AI_UNAVAILABLE = "O serviço de IA não respondeu. Tente de novo."
+MAX_FILE_SIZE_MESSAGE = "O arquivo excede o limite máximo permitido de 10 MiB."
+
+
+def _upload_error(status_code: int, code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
 
 
 def _parse_id(document_id: str) -> UUID:
@@ -45,19 +55,23 @@ def upload_document(
             break
         content.extend(chunk)
         if len(content) > settings.max_file_size:
-            raise HTTPException(status_code=413, detail="O arquivo excede o limite de 10 MB.")
+            raise _upload_error(413, "FILE_TOO_LARGE", MAX_FILE_SIZE_MESSAGE)
     if not content:
-        raise HTTPException(status_code=400, detail="O arquivo está vazio.")
-    if not content.startswith(b"%PDF"):
-        raise HTTPException(status_code=415, detail="O arquivo enviado não é um PDF.")
+        raise _upload_error(400, "EMPTY_FILE", "O arquivo está vazio.")
     try:
         extraction = extract_text(bytes(content), max_pages=settings.max_pages)
     except PDFTooManyPagesError as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise _upload_error(413, "TOO_MANY_PAGES", str(exc)) from exc
+    except PDFPasswordError as exc:
+        raise _upload_error(422, "PASSWORD_PROTECTED", str(exc)) from exc
     except PDFReaderError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise _upload_error(400, "INVALID_PDF", str(exc)) from exc
     if not extraction.has_text:
-        raise HTTPException(status_code=400, detail="O documento não contém texto pesquisável.")
+        raise _upload_error(
+            422,
+            "NO_EXTRACTABLE_TEXT",
+            "O documento não contém texto extraível. Se ele for composto por imagens, será necessário utilizar OCR.",
+        )
     text_chunks = split_into_chunks(
         extraction.page_texts, settings.chunk_size, min(settings.chunk_overlap, settings.chunk_size - 1)
     )
